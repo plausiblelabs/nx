@@ -1,4 +1,4 @@
 <plugin>
-  <name>noex</name>
+  <name>nx</name>
   <classname>coop.plausible.scala.nx.NXPlugin</classname>
 </plugin>
