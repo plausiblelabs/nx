@@ -23,10 +23,59 @@
 
 package coop.plausible.scala.nx
 
+import scala.reflect.api.Universe
+
 /**
  * No Exceptions macro implementation.
  */
 object NXMacro extends MacroTypes {
+  /**
+   * Private implementation of the nx macro; rather than triggering compilation errors,
+   * it simply returns the result of the validation.
+   *
+   * @param c Compiler context.
+   * @param expr Expression to be scanned.
+   * @tparam T Expression type.
+   * @return An expression that will vend the validation results.
+   */
+  def nx_macro_check[T] (c: Context)(expr: c.Expr[T]): c.Expr[Set[Class[_ <: Throwable]]] = {
+    import c.universe._
+
+    /* Instantiate a macro global-based instance of the plugin core */
+    val core = new NX {
+      override val universe: c.universe.type = c.universe
+    }
+
+    /* Kick off our traversal */
+    val traverse = new core.ExceptionTraversal {
+      /* Hand any errors off to our macro context */
+      override def error (pos: core.universe.Position, message: String): Unit = c.error(pos, message)
+    }
+
+    /* Perform the traversal */
+    traverse.traverse(expr.tree)
+
+    /* Convert the set of unhandled exceptions to an AST representing a classOf[Throwable] argument list. */
+    val seqArgs = traverse.unhandledExceptions.map(name => Literal(Constant(name))).toList
+
+    /* Select the scala.Throwable class */
+    val throwableClass = Select(Ident(definitions.ScalaPackage), newTypeName("Throwable"))
+
+    /* Define our Class[_ <: Throwable] type */
+    val existentialClassType = ExistentialTypeTree(
+      /* Define a new applied Class[T] type of _$1 */
+      AppliedTypeTree(Ident(definitions.ClassClass), List(Ident(newTypeName("_$1")))),
+
+      /* Define type _$1 = Class[_ <: Throwable] */
+      List(TypeDef(Modifiers(Flag.DEFERRED /* | SYNTHETIC */), newTypeName("_$1"), List(), TypeBoundsTree(Ident(definitions.NothingClass), throwableClass)))
+    )
+
+    /* Fetch Set.apply() */
+
+    /* Compose the Seq[_ <: Throwable](traverse.unhandledExceptions:_*) return value */
+    c.Expr(Select(Apply(TypeApply(Ident(definitions.List_apply), List(existentialClassType)), seqArgs), newTermName("toSet")))
+  }
+
   /**
    * Implementation of the nx macro. Refer to [[NX.nx]] for the public API.
    *
@@ -49,6 +98,11 @@ object NXMacro extends MacroTypes {
 
     /* Perform the traversal */
     traverse.traverse(expr.tree)
+
+    /* Report any unhandled exceptions */
+    val unhandled = traverse.unhandledExceptions
+    if (unhandled.size > 0)
+      println(s"Unhandled: ${traverse.unhandledExceptions}")
 
     /* Return the original, unmodified expression */
     expr

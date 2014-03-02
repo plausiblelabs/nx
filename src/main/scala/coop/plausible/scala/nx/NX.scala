@@ -39,6 +39,15 @@ object NX {
    * @return The expression result, or a compiler error if the expression contained unchecked exceptions.
    */
   def nx[T] (expr: T): T = macro NXMacro.nx_macro[T]
+
+  /**
+   * Scan `expr` for unhandled exceptions and return the results.
+   *
+   * @param expr The expression to be scanned.
+   * @tparam T The expression type.
+   * @return All uncaught exceptions, as a list of strings.
+   */
+  private[nx] def check[T] (expr: T): Set[Class[_ <: Throwable]] = macro NXMacro.nx_macro_check[T]
 }
 
 /**
@@ -75,6 +84,13 @@ trait NX {
     /* An unfortunate bit of mutability that we can't escape */
     private val throwies = mutable.HashSet[Type]()
 
+    /**
+     * Fetch the set of unhandled exceptions.
+     *
+     * @return All unhandled exceptions in the given tree.
+     */
+    def unhandledExceptions: Set[Type] = throwies.toSet
+
     /** @inheritdoc */
     override def traverse (tree: Tree): Unit = {
       /* Traverse children; we work from the bottom up. */
@@ -84,31 +100,32 @@ trait NX {
       }
 
       childTraverser.traverseTrees(tree.children)
-      throwies ++ childTraverser.throwies
+      throwies ++= childTraverser.throwies
 
       /* Look for exception-related constructs */
       tree match {
         /* try statement */
         case Try(_, catches, _) =>
           // TODO - Clear caught throwies
-          println(s"TRY: $tree")
+          //println(s"TRY: $tree")
 
         /* Method, function, or constructor. */
         case defdef:DefDef =>
           // TODO - Report undeclared throwies
-          println(s"DEF: $defdef")
+          //println(s"DEF: $defdef")
 
         /* Explicit throw */
         case thr:Throw =>
+          // println("THROW")
           /* Add the type to the list of throwies. */
           throwies.add(thr.expr.tpe)
 
         /* Method/function call */
         case apply:Apply =>
           // TODO - Gather throws annotations
-          println(s"APPLIED: $tree")
+          //println(s"APPLIED: $tree")
           if (apply.symbol.annotations.hasDefiniteSize && apply.symbol.annotations.size > 0) {
-            println(s"$tree annotations: ${apply.symbol.annotations}")
+            //println(s"$tree annotations: ${apply.symbol.annotations}")
           }
 
           //println(s"Thrown: ${apply.symbol.throwsAnnotations()}")

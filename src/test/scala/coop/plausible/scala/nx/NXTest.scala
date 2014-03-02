@@ -34,6 +34,14 @@ class NXTest extends Specification {
   import NX.nx
 
   "NX" should {
+    "traverse throw" in {
+      NX.check {
+        if (false) throw new IOException("Fake IO Exception")
+      } must beEqualTo(Set(classOf[IOException]))
+
+    }
+
+    /*
     "traverse defs" in {
       nx {
         def foo (value: Int) = value
@@ -61,12 +69,6 @@ class NXTest extends Specification {
       } must beTrue
 
     }
-
-    "traverse throw" in {
-      nx {
-        if (false) throw new IOException("Fake IO Exception")
-        true
-      } must beTrue
-    }
+    */
   }
 }
