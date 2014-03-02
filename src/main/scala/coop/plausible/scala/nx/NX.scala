@@ -41,11 +41,22 @@ object NX {
   def nx[T] (expr: T): T = macro NXMacro.nx_macro[T]
 
   /**
-   * Scan `expr` for unhandled exceptions and return the results.
+   * Scan `expr` for unhandled exceptions and return the results; rather than triggering compilation errors,
+   * this simply returns the result of the validation.
+   *
+   * Example usage:
+   * {{{
+   *   val unhandledExceptions: Set[Class[_ <: Throwable]] = NX.check {
+   *      java.inet.InetAddress.getByName("some host")
+   *   }
+   * }}}
+   *
+   * Since java.inet.InetAddress.getByName() declares that it throws an UnknownHostException, the result
+   * of NX.check will be a Set(classOf[UnknownHostException]).
    *
    * @param expr The expression to be scanned.
    * @tparam T The expression type.
-   * @return All uncaught exceptions, as a list of strings.
+   * @return All uncaught exception classes.
    */
   private[nx] def check[T] (expr: T): Set[Class[_ <: Throwable]] = macro NXMacro.nx_macro_check[T]
 }
