@@ -24,28 +24,12 @@
 package coop.plausible.scala.nx
 
 /**
- * No Exceptions macro implementation.
+ * Scala 2.10 compatibility types.
  */
-object NXMacro extends MacroTypes {
+trait MacroTypes {
   /**
-   * Implementation of the nx macro. Refer to [[NX.nx]] for the public API.
-   *
-   * @param c Compiler context.
-   * @param expr Expression to be scanned.
-   * @tparam T Expression type.
-   * @return The original expression, or a compiler error.
+   * The blackbox context type for this Scala release.
+   * Refer to [[http://docs.scala-lang.org/overviews/macros/blackbox-whitebox.html]] for more details.
    */
-  def nx_macro[T] (c: Context)(expr: c.Expr[T]): c.Expr[T] = {
-    /* Instantiate a macro universe-based instance of the plugin core */
-    val core = new NX {
-      override val global: c.universe.type = c.universe
-    }
-
-    /* Kick off our traversal */
-    val traverse = new core.ExceptionTraversal
-    traverse.traverse(expr.tree)
-
-    /* Return the original, unmodified expression */
-    expr
-  }
+  type Context = scala.reflect.macros.Context
 }

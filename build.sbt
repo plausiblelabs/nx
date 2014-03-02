@@ -24,6 +24,36 @@ scalacOptions ++= Seq(
     "-encoding", "UTF-8"
 )
 
+/*
+ * If necessary for the given target Scala version, add a versioned scala_<major>.<minor> directory to the
+ * unmanagedSourceDirectories list. This allows us to adapt to changes in the experimental macro APIs. We use the macro
+ * APIs to implement unit testing, as well as to provide our own experimental no-exceptions macro.
+ */
+unmanagedSourceDirectories in Compile <<= (unmanagedSourceDirectories in Compile, sourceDirectory in Compile, scalaVersion) { (allDirs: Seq[File], scalaDir: File, version: String) =>
+  /* Determine the target binary version */
+  val binaryVersion = CrossVersion.scalaApiVersion(version).orElse(CrossVersion.partialVersion(version)).map {
+    /* Handle 2.10; first version where macros appeared */
+    case (2, 10) =>
+      "2.10"
+    /* Handle 2.11+; in theory, the API should be stable afterwards, so we map all later versions to '2.11' */
+    case (major: Int, minor: Int) if major >= 2 && minor >= 11 =>
+      "2.11"
+    /* This will only be reachable if crossScalaVersions is updated to include a version < 2.10 (unlikely). */
+    case _ =>
+      throw new RuntimeException(s"Unsupported version: $version")
+  }.getOrElse {
+    throw new RuntimeException(s"Could not parse target Scala version $version")
+  }
+  /* Append the target version to the primary Scala source directory */
+  val crossSourceDirectory = new File(scalaDir, "scala_" + binaryVersion)
+  /* If the directory exists, add it to the ... */
+  if (crossSourceDirectory.isDirectory) {
+    allDirs :+ crossSourceDirectory
+  } else {
+    allDirs
+  }
+}
+
 // Fork when testing; this ensures that we get a useable classpath for our compiler plugin
 fork in Test := true
 
