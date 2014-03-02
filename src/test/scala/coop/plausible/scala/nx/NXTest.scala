@@ -30,10 +30,12 @@ import java.io.IOException
  * NX implementation tests.
  */
 class NXTest extends Specification {
-  /* We use the macro to simplify testing */
+  /* NOTE: The NX.check() macro used below will elide all of the code within it from
+   * the final output. /None/ of code found within the macro blocks is actually run. */
   import NX.nx
 
   "NX" should {
+    /* Test extraction of explicit `throw` statements */
     "find throw statements" in {
       /* Find nested throw statements */
       NX.check {
@@ -46,8 +48,27 @@ class NXTest extends Specification {
         class OtherClass (flag: Boolean) {
           if (flag) throw new RuntimeException("Ha ha! You thought you were safe!")
         }
-        
       } must beEqualTo(Set(classOf[IOException], classOf[RuntimeException]))
+    }
+
+    /* Test extraction of @throws annotations from called methods that are declared to throw */
+    "find throw annotations on referenced methods" in {
+      /* New-style constructor */
+      @throws[RuntimeException]("") def scalaThrower (): Unit = ()
+
+      /* Old-style constructor */
+      @throws(classOf[IOException]) def oldScalaThrower (): Unit = ()
+
+      NX.check {
+        /* (External Java) -- defined to throw an UnknownHostException */
+        java.net.InetAddress.getByName("")
+
+        /* (Scala) -- defined to throw a RuntimeException */
+        scalaThrower()
+
+        /* (Scala) -- defined to throw an IOException */
+        oldScalaThrower()
+      } must beEqualTo(Set(classOf[java.net.UnknownHostException], classOf[RuntimeException], classOf[IOException]))
     }
 
     /*

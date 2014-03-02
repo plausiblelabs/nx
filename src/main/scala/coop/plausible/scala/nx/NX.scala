@@ -122,13 +122,29 @@ trait NX {
 
         /* Method/function call */
         case apply:Apply =>
-          // TODO - Gather throws annotations
-          //println(s"APPLIED: $tree")
-          if (apply.symbol.annotations.hasDefiniteSize && apply.symbol.annotations.size > 0) {
-            //println(s"$tree annotations: ${apply.symbol.annotations}")
-          }
+          /* Filter non-@throws annotations */
+          val throws = apply.symbol.annotations.filterNot(_.tpe =:= typeOf[throws[_]])
 
-          //println(s"Thrown: ${apply.symbol.throwsAnnotations()}")
+          /*
+           * Extract the actual exception types, and add them to `throwies`. We support
+           * both 'new-style' and 'old-style' @throws constructors:
+           *
+           * - @throws(clazz: Class[T]) (old style)
+           * - @throws[T](cause: String) (new style)
+           */
+          throws.foreach {
+            // old-style: @throws(classOf[Exception]) (which is throws[T](classOf[Exception]))
+            case Annotation(_, List(Literal(Constant(tpe: Type))), _) =>
+              throwies += tpe
+
+            // new-style: @throws[Exception], @throws[Exception]("cause")
+            case Annotation(TypeRef(_, _, args), _, _) =>
+              throwies += args.head
+
+            // Unknown
+            case other =>
+              error(apply.pos, s"Unsupported @throws annotation parameters: $other")
+          }
 
         case _ =>
           //println(s"u: ${tree.getClass.getSimpleName} - $tree")
