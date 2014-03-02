@@ -71,12 +71,28 @@ class NXTest extends Specification {
       } must beEqualTo(Set(classOf[java.net.UnknownHostException], classOf[RuntimeException], classOf[IOException]))
     }
 
-    /* Test filtering of found throwies based on enclosing @throws annotations */
-    "exclude throwies based on an enclosing def @throws annotation" in {
+    "exclude throwies based on an enclosing def's @throws annotation" in {
       NX.check {
+        /* Should exclude the throw below */
         @throws[IOException]("If I don't like you")
         def foo (flag:Boolean) = { if (!flag) throw new IOException("No such luck!") }
       } must beEqualTo(Set())
+    }
+
+    "exclude supertype throwies based on an enclosing def's @throws annotations" in {
+      NX.check {
+        /* Should match on the Exception subtype */
+        @throws[Exception]("If I don't like you")
+        def foo (flag:Boolean) = { if (!flag) throw new IOException("No such luck!") }
+      } must beEqualTo(Set())
+    }
+
+    "propagate non-subtype throwies based on an enclosing def's @throws annotations" in {
+      NX.check {
+        /* Should NOT match on the thrown supertype */
+        @throws[IOException]("If I don't like you")
+        def foo (flag:Boolean) = { if (!flag) throw new Exception("No such luck!") }
+      } must beEqualTo(Set(classOf[Exception]))
     }
 
     /*

@@ -128,7 +128,9 @@ trait NX {
           /* Extract the actual exception types and remove them from `throwies` */
           throws.foreach { (annotation:Annotation) =>
             extractThrowsAnnotation(annotation) match {
-              case Some(tpe) => throwies -= tpe
+              case Some(tpe) =>
+                val toRemove = throwies.filter(_ <:< tpe)
+                throwies --= toRemove
               case None => error(defdef.pos, s"Unsupported @throws annotation parameters '$annotation' on called method")
             }
           }
