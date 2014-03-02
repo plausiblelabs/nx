@@ -38,6 +38,9 @@ class NXPlugin (val global: Global) extends Plugin with NX {
   override val description: String = "Checked exceptions for Scala. If you're stuck using exceptions, insist on Checked Brand Exceptions™."
   override val components: List[PluginComponent] = List(Component)
 
+  /* NX API */
+  override val universe: global.type = global
+
   /**
    * Compiler component that defines our NXMacro compilation phase; hands the
    * compilation unit off to the actual NXMacro implementation.
@@ -55,7 +58,14 @@ class NXPlugin (val global: Global) extends Plugin with NX {
      */
     class ValidationPhase (prev: Phase) extends StdPhase(prev) {
       override def apply (unit: CompilationUnit) = {
-        new ExceptionTraversal()(unit.body)
+        /* Create our traverser */
+        val traverser = new ExceptionTraversal() {
+          /* Hand any errors off to the compilation unit. */
+          override def error (pos: Position, message: String) = unit.error(pos, message)
+        }
+
+        /* Traverse the compilation unit */
+        traverser(unit.body)
       }
     }
   }

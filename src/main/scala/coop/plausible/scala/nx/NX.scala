@@ -44,45 +44,68 @@ object NX {
 /**
  * No Exceptions Implementation.
  *
- * This trait may be mixed in with any valid reflection universe, including:
+ * This trait may be mixed in with any valid reflection global, including:
  * - As a compiler plugin (see [[NXPlugin]], and
  * - As a compile-time macro (see [[NXMacro]]
  */
 trait NX {
   /** Reflection universe. */
-  val global: Universe
-  import global._
+  val universe: Universe
+  import universe._
+
+  /**
+   * This trait may be mixed in to support compiler (or macro, or reflection) error reporting.
+   */
+  trait ErrorReporting {
+    /**
+     * Report an error at `pos` with the given `message`.
+     *
+     * @param pos The position of the error.
+     * @param message The error message.
+     */
+    def error (pos: Position, message: String)
+  }
 
   /**
    * Handles traversal of the tree.
    */
-  class ExceptionTraversal extends Traverser {
+  abstract class ExceptionTraversal extends Traverser with ErrorReporting {
+    import scala.collection.mutable
 
+    /* An unfortunate bit of mutability that we can't escape */
+    private val throwies = mutable.HashSet[Type]()
 
+    /** @inheritdoc */
     override def traverse (tree: Tree): Unit = {
-
       /* Traverse children; we work from the bottom up. */
-      super.traverse(tree)
+      val childTraverser = new ExceptionTraversal() {
+        /* Hand any errors off to our parent */
+        override def error (pos: Position, message: String): Unit = ExceptionTraversal.this.error(pos, message)
+      }
+
+      childTraverser.traverseTrees(tree.children)
+      throwies ++ childTraverser.throwies
 
       /* Look for exception-related constructs */
       tree match {
         /* try statement */
         case Try(_, catches, _) =>
+          // TODO - Clear caught throwies
           println(s"TRY: $tree")
 
         /* Method, function, or constructor. */
         case defdef:DefDef =>
+          // TODO - Report undeclared throwies
           println(s"DEF: $defdef")
 
         /* Explicit throw */
         case thr:Throw =>
-          val excType = thr.expr.tpe
-
-          println(s"THROW: $tree")
-          println(s"Throws: excType")
+          /* Add the type to the list of throwies. */
+          throwies.add(thr.expr.tpe)
 
         /* Method/function call */
         case apply:Apply =>
+          // TODO - Gather throws annotations
           println(s"APPLIED: $tree")
           if (apply.symbol.annotations.hasDefiniteSize && apply.symbol.annotations.size > 0) {
             println(s"$tree annotations: ${apply.symbol.annotations}")

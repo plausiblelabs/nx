@@ -36,13 +36,18 @@ object NXMacro extends MacroTypes {
    * @return The original expression, or a compiler error.
    */
   def nx_macro[T] (c: Context)(expr: c.Expr[T]): c.Expr[T] = {
-    /* Instantiate a macro universe-based instance of the plugin core */
+    /* Instantiate a macro global-based instance of the plugin core */
     val core = new NX {
-      override val global: c.universe.type = c.universe
+      override val universe: c.universe.type = c.universe
     }
 
     /* Kick off our traversal */
-    val traverse = new core.ExceptionTraversal
+    val traverse = new core.ExceptionTraversal {
+      /* Hand any errors off to our macro context */
+      override def error (pos: core.universe.Position, message: String): Unit = c.error(pos, message)
+    }
+
+    /* Perform the traversal */
     traverse.traverse(expr.tree)
 
     /* Return the original, unmodified expression */
