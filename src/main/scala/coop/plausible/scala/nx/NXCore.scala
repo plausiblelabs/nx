@@ -23,18 +23,18 @@
 
 package coop.plausible.scala.nx
 
-import scala.tools.nsc.Global
+import scala.reflect.api.Universe
 
 /**
- * No Exceptions plugin implementation.
+ * No Exceptions Implementation.
  *
- * The plugin classes are implemented as a trait to allow use outside
- * of the NXPlugin concrete implementation.
+ * This trait may be mixed in with any valid reflection universe, including:
+ * - As a compiler plugin (see [[NXPlugin]], and
+ * - As a compile-time macro (see [[NXMacro]]
  */
-trait PluginCore {
-  /** Compiler global state. */
-  val global: Global
-
+trait NXCore {
+  /** Reflection universe. */
+  val global: Universe
   import global._
 
   /**
@@ -64,7 +64,11 @@ trait PluginCore {
         /* Method/function call */
         case apply:Apply =>
           println(s"APPLIED: $tree")
-          println(s"Thrown: ${apply.symbol.throwsAnnotations()}")
+          if (apply.symbol.annotations.hasDefiniteSize && apply.symbol.annotations.size > 0) {
+            println(s"$tree annotations: ${apply.symbol.annotations}")
+          }
+
+          //println(s"Thrown: ${apply.symbol.throwsAnnotations()}")
           traverseDefault()
 
         case apply:TypeApply =>

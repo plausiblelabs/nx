@@ -23,42 +23,44 @@
 
 package coop.plausible.scala.nx
 
-import scala.tools.nsc.{Phase, Global}
-import scala.tools.nsc.plugins.{PluginComponent, Plugin}
+import scala.reflect.macros.Context
 
 /**
- * No Exceptions compiler plugin.
- *
- * @param global Compiler state.
+ * No Exceptions macro implementation.
  */
-class NXPlugin (val global: Global) extends Plugin with NXCore {
-  import global._
-
-  override val name: String = "nx"
-  override val description: String = "Checked exceptions for Scala. If you're stuck using exceptions, insist on Checked Brand Exceptions™."
-  override val components: List[PluginComponent] = List(Component)
+object NXMacro {
+  import scala.language.experimental.macros
 
   /**
-   * Compiler component that defines our NXMacro compilation phase; hands the
-   * compilation unit off to the actual NXMacro implementation.
+   * Implementation of the nx macro.
+   *
+   * @param c Compiler context.
+   * @param expr Expression to be scanned.
+   * @tparam T Expression type.
+   * @return The original expression, or a compiler error.
    */
-  private object Component extends PluginComponent {
-    override def newPhase (prev: Phase )= new ValidationPhase(prev)
+  def nx_macro[T] (c: Context)(expr: c.Expr[T]): c.Expr[T] = {
+    import c.universe._
 
-    override val runsAfter: List[String] = List("refchecks", "typer")
-    override val phaseName: String = NXPlugin.this.name
-    override val global: NXPlugin.this.global.type = NXPlugin.this.global
-
-    /**
-     * Exception validation phase.
-     * @param prev The previous phase.
-     */
-    class ValidationPhase (prev: Phase) extends StdPhase(prev) {
-      override def apply (unit: CompilationUnit) = {
-        new ExceptionTraversal()(unit.body)
-      }
+    /* Instantiate an instance of the plugin core */
+    val core = new NXCore {
+      override val global: c.universe.type = c.universe
     }
+
+    /* Kick off our traversal */
+    val traverse = new core.ExceptionTraversal
+    traverse.traverse(expr.tree)
+
+    /* Return the original, unmodified expression */
+    expr
   }
 
+  /**
+   * Scan `expr` for unhandled exceptions.
+   *
+   * @param expr The expression to be scanned.
+   * @tparam T The expression type.
+   * @return The expression result, or a compiler error if the expression contained unchecked exceptions.
+   */
+  def nx[T] (expr: T): T = macro nx_macro[T]
 }
-
