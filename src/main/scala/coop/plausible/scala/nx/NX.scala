@@ -122,8 +122,16 @@ trait NX {
 
         /* Method, function, or constructor. */
         case defdef:DefDef =>
-          // TODO - Report undeclared throwies
-          //println(s"DEF: $defdef")
+          /* Find @throws annotations */
+          val throws = defdef.symbol.annotations.filterNot(_.tpe =:= typeOf[throws[_]])
+
+          /* Extract the actual exception types and remove them from `throwies` */
+          throws.foreach { (annotation:Annotation) =>
+            extractThrowsAnnotation(annotation) match {
+              case Some(tpe) => throwies -= tpe
+              case None => error(defdef.pos, s"Unsupported @throws annotation parameters '$annotation' on called method")
+            }
+          }
 
         /* Explicit throw */
         case thr:Throw =>
