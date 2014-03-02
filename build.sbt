@@ -62,7 +62,7 @@ scalacOptions in console in Compile <+= (packageBin in Compile) map { p =>
   s"-Xplugin:$p"
 }
 
-// Load our plugin when compiling the tests
-scalacOptions in Test <+= (packageBin in Compile) map { p =>
-  s"-Xplugin:$p"
+// Provide the plugin path to our tests
+testOptions <+= (packageBin in Compile) map { p =>
+  Tests.Argument("nx-plugin-path", p.toString)
 }

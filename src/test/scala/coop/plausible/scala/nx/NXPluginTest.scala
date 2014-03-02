@@ -25,6 +25,7 @@ package coop.plausible.scala.nx
 
 import org.specs2.mutable.Specification
 import scala.tools.nsc.interpreter.IMain
+import org.specs2.main.CommandLineArguments
 
 /**
  * Test compiler plugin-based execution. This assumes that the build environment (sbt by default) is configured to
@@ -32,7 +33,17 @@ import scala.tools.nsc.interpreter.IMain
  *
  * This is a basic smoke test for the plugin; the actual core implementation is tested in NXTest.
  */
-class NXPluginTest extends Specification {
+class NXPluginTest extends Specification with CommandLineArguments {
+  /*
+   * Fetch the path to the NX plugin jar. This must be supplied via sbt, eg:
+   * testOptions <+= (packageBin in Compile) map { p =>
+   *   Tests.Argument("nx-plugin-path", p.toString)
+   * }
+   */
+  val pluginJar = arguments.commandLine.value("nx-plugin-path").getOrElse {
+    throw new IllegalArgumentException("Missing nx-plugin-path test argument")
+  }
+
   "NXPlugin" should {
     "run as a compiler plugin" in {
       /* Configure the compiler */
@@ -41,16 +52,19 @@ class NXPluginTest extends Specification {
       /* Inherit our Java classpath */
       settings.usejavacp.value = true
 
+      /* Enable loading of our plugin */
+      settings.plugin.appendToValue(pluginJar)
+
       /* Set up the compiler. We use the interpreter API to keep things simple */
       val interp =  new IMain(settings)
 
       /* Run our smoke test */
       interp.interpret(
         """
-          |def foo (value: Int): Int = 5 + 5
+          |def foo (value: Int): Int = value + 1942
           |val ret = foo(5)
         """.stripMargin)
-      interp.valueOfTerm("ret") must beSome(10)
+      interp.valueOfTerm("ret") must beSome(1947)
     }
   }
 }
