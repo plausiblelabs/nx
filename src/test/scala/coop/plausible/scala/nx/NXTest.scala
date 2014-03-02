@@ -34,7 +34,35 @@ class NXTest extends Specification {
   import NX.nx
 
   "NX" should {
-    "discover throw statements" in {
+    "traverse defs" in {
+      nx {
+        def foo (value: Int) = value
+        true
+      } must beTrue
+    }
+
+    "traverse try-catch" in {
+      nx {
+        try {
+          throw new IOException("Your jib, it's not cut right")
+        } catch {
+          case e:IOException => true
+        }
+      } must beTrue
+    }
+
+    "traverse constructors" in {
+      nx {
+        class TestClass @throws[IOException]("If the name strikes us as unfortunate") (name: String) {
+          def this () = this("a name")
+        }
+        new TestClass()
+        true
+      } must beTrue
+
+    }
+
+    "traverse throw" in {
       nx {
         if (false) throw new IOException("Fake IO Exception")
         true

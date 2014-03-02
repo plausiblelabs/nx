@@ -57,25 +57,29 @@ trait NX {
    * Handles traversal of the tree.
    */
   class ExceptionTraversal extends Traverser {
+
+
     override def traverse (tree: Tree): Unit = {
 
-      /* Let the superclass handle traversal */
-      def traverseDefault () = {
-        super.traverse(tree)
-      }
+      /* Traverse children; we work from the bottom up. */
+      super.traverse(tree)
 
       /* Look for exception-related constructs */
       tree match {
         /* try statement */
         case Try(_, catches, _) =>
           println(s"TRY: $tree")
-          traverseDefault()
+
+        /* Method, function, or constructor. */
+        case defdef:DefDef =>
+          println(s"DEF: $defdef")
 
         /* Explicit throw */
         case thr:Throw =>
+          val excType = thr.expr.tpe
+
           println(s"THROW: $tree")
-          println(s"Throws: ${thr.symbol}")
-          traverseDefault()
+          println(s"Throws: excType")
 
         /* Method/function call */
         case apply:Apply =>
@@ -85,15 +89,9 @@ trait NX {
           }
 
           //println(s"Thrown: ${apply.symbol.throwsAnnotations()}")
-          traverseDefault()
-
-        case apply:TypeApply =>
-          println(s"TAPPLY: $tree")
-          traverseDefault()
 
         case _ =>
-          println(s"u: ${tree.getClass.getSimpleName} - $tree")
-          traverseDefault()
+          //println(s"u: ${tree.getClass.getSimpleName} - $tree")
       }
     }
   }
