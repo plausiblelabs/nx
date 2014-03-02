@@ -34,11 +34,20 @@ class NXTest extends Specification {
   import NX.nx
 
   "NX" should {
-    "traverse throw" in {
+    "find throw statements" in {
+      /* Find nested throw statements */
       NX.check {
-        if (false) throw new IOException("Fake IO Exception")
-      } must beEqualTo(Set(classOf[IOException]))
+        class MyClass {
+          def doSomething (flag: Boolean) {
+            if (flag) throw new IOException("I done did something")
+          }
+        }
 
+        class OtherClass (flag: Boolean) {
+          if (flag) throw new RuntimeException("Ha ha! You thought you were safe!")
+        }
+        
+      } must beEqualTo(Set(classOf[IOException], classOf[RuntimeException]))
     }
 
     /*
