@@ -126,29 +126,41 @@ trait NX {
           val throws = apply.symbol.annotations.filterNot(_.tpe =:= typeOf[throws[_]])
 
           /*
-           * Extract the actual exception types, and add them to `throwies`. We support
-           * both 'new-style' and 'old-style' @throws constructors:
-           *
-           * - @throws(clazz: Class[T]) (old style)
-           * - @throws[T](cause: String) (new style)
+           * Extract the actual exception types.
            */
-          throws.foreach {
-            // old-style: @throws(classOf[Exception]) (which is throws[T](classOf[Exception]))
-            case Annotation(_, List(Literal(Constant(tpe: Type))), _) =>
-              throwies += tpe
-
-            // new-style: @throws[Exception], @throws[Exception]("cause")
-            case Annotation(TypeRef(_, _, args), _, _) =>
-              throwies += args.head
-
-            // Unknown
-            case other =>
-              error(apply.pos, s"Unsupported @throws annotation parameters: $other")
+          throws.foreach { (annotation:Annotation) =>
+            extractThrowsAnnotation(annotation) match {
+              case Some(tpe) =>
+                throwies += tpe
+              case None =>
+                error(apply.pos, s"Unsupported @throws annotation parameters '$annotation' on called method")
+            }
           }
 
         case _ =>
           //println(s"u: ${tree.getClass.getSimpleName} - $tree")
       }
+    }
+
+    /**
+     * Extract the exception type from a @throws annotation.
+     *
+     * We support both 'new-style' and 'old-style' @throws constructors:
+     *
+     * - @throws(clazz: Class[T]) (old style)
+     * - @throws[T](cause: String) (new style)
+     *
+     * @return Returns Some(Class[T]) on success, or None if the Annotation's arguments were in an unknown format.
+     */
+    private def extractThrowsAnnotation (annotation: Annotation): Option[Type] = annotation match {
+      // old-style: @throws(classOf[Exception]) (which is throws[T](classOf[Exception]))
+      case Annotation(_, List(Literal(Constant(tpe: Type))), _) => Some(tpe)
+
+      // new-style: @throws[Exception], @throws[Exception]("cause")
+      case Annotation(TypeRef(_, _, args), _, _) => Some(args.head)
+
+      // Unknown
+      case other => None
     }
   }
 }
