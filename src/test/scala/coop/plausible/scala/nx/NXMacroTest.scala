@@ -28,14 +28,14 @@ import org.specs2.mutable.Specification
 /**
  * Test macro-based execution.
  *
- * This is a basic smoke test for the macro; the actual core implementation is tested in NXCoreTest.
+ * This is a basic smoke test for the macro; the actual core implementation is tested in NXTest.
  */
 class NXMacroTest extends Specification {
   "NXMacro" should {
     /* Once we support actual error reporting, we should smoke
      * test that too. */
     "evaluate an expression at compile-time" in {
-      NXMacro.nx {
+      NX.nx {
         def foo (value: Int): Int = 5 + 5
         foo(5)
       } must beEqualTo(10)

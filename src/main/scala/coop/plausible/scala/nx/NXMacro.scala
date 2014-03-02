@@ -29,10 +29,9 @@ import scala.reflect.macros.Context
  * No Exceptions macro implementation.
  */
 object NXMacro {
-  import scala.language.experimental.macros
 
   /**
-   * Implementation of the nx macro.
+   * Implementation of the nx macro. Refer to [[NX.nx]] for the public API.
    *
    * @param c Compiler context.
    * @param expr Expression to be scanned.
@@ -40,10 +39,8 @@ object NXMacro {
    * @return The original expression, or a compiler error.
    */
   def nx_macro[T] (c: Context)(expr: c.Expr[T]): c.Expr[T] = {
-    import c.universe._
-
-    /* Instantiate an instance of the plugin core */
-    val core = new NXCore {
+    /* Instantiate a macro universe-based instance of the plugin core */
+    val core = new NX {
       override val global: c.universe.type = c.universe
     }
 
@@ -54,13 +51,4 @@ object NXMacro {
     /* Return the original, unmodified expression */
     expr
   }
-
-  /**
-   * Scan `expr` for unhandled exceptions.
-   *
-   * @param expr The expression to be scanned.
-   * @tparam T The expression type.
-   * @return The expression result, or a compiler error if the expression contained unchecked exceptions.
-   */
-  def nx[T] (expr: T): T = macro nx_macro[T]
 }

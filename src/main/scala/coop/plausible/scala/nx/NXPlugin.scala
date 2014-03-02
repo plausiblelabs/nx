@@ -31,7 +31,7 @@ import scala.tools.nsc.plugins.{PluginComponent, Plugin}
  *
  * @param global Compiler state.
  */
-class NXPlugin (val global: Global) extends Plugin with NXCore {
+class NXPlugin (val global: Global) extends Plugin with NX {
   import global._
 
   override val name: String = "nx"

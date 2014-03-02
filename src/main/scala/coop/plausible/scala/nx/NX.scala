@@ -26,13 +26,29 @@ package coop.plausible.scala.nx
 import scala.reflect.api.Universe
 
 /**
+ * No Exceptions
+ */
+object NX {
+  import scala.language.experimental.macros
+
+  /**
+   * Scan `expr` for unhandled exceptions.
+   *
+   * @param expr The expression to be scanned.
+   * @tparam T The expression type.
+   * @return The expression result, or a compiler error if the expression contained unchecked exceptions.
+   */
+  def nx[T] (expr: T): T = macro NXMacro.nx_macro[T]
+}
+
+/**
  * No Exceptions Implementation.
  *
  * This trait may be mixed in with any valid reflection universe, including:
  * - As a compiler plugin (see [[NXPlugin]], and
  * - As a compile-time macro (see [[NXMacro]]
  */
-trait NXCore {
+trait NX {
   /** Reflection universe. */
   val global: Universe
   import global._

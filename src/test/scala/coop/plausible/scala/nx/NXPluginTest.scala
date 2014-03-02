@@ -30,7 +30,7 @@ import scala.tools.nsc.interpreter.IMain
  * Test compiler plugin-based execution. This assumes that the build environment (sbt by default) is configured to
  * execute our tests with the plugin enabled (eg, via scalacOptions).
  *
- * This is a basic smoke test for the plugin; the actual core implementation is tested in NXCoreTest.
+ * This is a basic smoke test for the plugin; the actual core implementation is tested in NXTest.
  */
 class NXPluginTest extends Specification {
   "NXPlugin" should {
