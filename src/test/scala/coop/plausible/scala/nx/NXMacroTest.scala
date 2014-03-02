@@ -36,7 +36,7 @@ class NXMacroTest extends Specification {
      * test that too. */
     "evaluate an expression at compile-time" in {
       NX.nx {
-        def foo (value: Int): Int = 5 + 5
+        def foo (value: Int): Int = value + 5
         foo(5)
       } must beEqualTo(10)
     }
