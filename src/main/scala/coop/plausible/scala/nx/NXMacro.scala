@@ -70,8 +70,6 @@ object NXMacro extends MacroTypes {
       List(TypeDef(Modifiers(Flag.DEFERRED /* | SYNTHETIC */), newTypeName("_$1"), List(), TypeBoundsTree(Ident(definitions.NothingClass), throwableClass)))
     )
 
-    /* Fetch Set.apply() */
-
     /* Compose the Seq[_ <: Throwable](traverse.unhandledExceptions:_*) return value */
     c.Expr(Select(Apply(TypeApply(Ident(definitions.List_apply), List(existentialClassType)), seqArgs), newTermName("toSet")))
   }
