@@ -92,7 +92,12 @@ trait NX {
   abstract class ExceptionTraversal extends Traverser with ErrorReporting {
     import scala.collection.mutable
 
-    /* An unfortunate bit of mutability that we can't escape */
+    /**
+     * The set of throwables types propagated from the current position in the tree.
+     *
+     * This is updated as the tree is walked; an unfortunate bit of mutability that we
+     * can't escape due to the constraints of the tree API.
+     */
     private val throwies = mutable.HashSet[Type]()
 
     /**
@@ -102,46 +107,89 @@ trait NX {
      */
     def unhandledExceptions: Set[Type] = throwies.toSet
 
+    /**
+     * Remove all throwables from the throwables set that are equal to or a subtype
+     * of the given exception type.
+     *
+     * @param throwType The exception supertype for which all matching throwable
+     *                  types will be discarded.
+     */
+    private def filterMatchingThrowies (throwType:Type): Unit = {
+      throwies --= throwies.filter(_ <:< throwType)
+    }
+
     /** @inheritdoc */
     override def traverse (tree: Tree): Unit = {
       /* Traverse children; we work from the bottom up. */
-      val childTraverser = new ExceptionTraversal() {
-        /* Hand any errors off to our parent */
-        override def error (pos: Position, message: String): Unit = ExceptionTraversal.this.error(pos, message)
+      def defaultTraverse (): Unit = {
+        super.traverseTrees(tree.children)
       }
-
-      childTraverser.traverseTrees(tree.children)
-      throwies ++= childTraverser.throwies
 
       /* Look for exception-related constructs */
       tree match {
-        /* try statement */
-        case Try(_, catches, _) =>
-          // TODO - Clear caught throwies
-          //println(s"TRY: $tree")
+        /*
+         * try statement
+         */
+        case Try(block, catches, finalizer) =>
+          /* Traverse into the try body to find all throwables */
+          traverse(block)
 
-        /* Method, function, or constructor. */
+          /* Extract the exception types of all viable catches. We must filter any that define a guard; there's no way
+           * for us to known whether the guard will match all possible values at runtime. */
+          val thrown = catches.filter(_.guard.isEmpty).map(_.pat.tpe)
+
+          /* Extract the actual exception types and remove them from the propagation set. */
+          thrown.foreach(filterMatchingThrowies)
+
+          /* Now extract any throwables from subtrees that are *not* caught by the try's catch() block. This must be done
+           * in the same order as they're declared in code so that we report issues in
+           * the correct order:
+           * - Guard blocks.
+           * - Case statement bodies.
+           * - Finalizer block
+           */
+          catches.foreach { c =>
+            traverse(c.pat)
+            traverse(c.guard)
+            traverse(c.body)
+          }
+          traverse(finalizer)
+
+        /*
+         * Method, function, or constructor definition
+         */
         case defdef:DefDef =>
+          /* Traverse all children */
+          defaultTraverse()
+
           /* Find @throws annotations */
           val throws = defdef.symbol.annotations.filterNot(_.tpe =:= typeOf[throws[_]])
 
-          /* Extract the actual exception types and remove them from `throwies` */
+          /* Extract the actual exception types and remove them from the propagation set. */
           throws.foreach { (annotation:Annotation) =>
             extractThrowsAnnotation(annotation) match {
-              case Some(tpe) =>
-                val toRemove = throwies.filter(_ <:< tpe)
-                throwies --= toRemove
+              case Some(tpe) => filterMatchingThrowies(tpe)
               case None => error(defdef.pos, s"Unsupported @throws annotation parameters '$annotation' on called method")
             }
           }
 
-        /* Explicit throw */
+        /*
+         * Explicit throw
+         */
         case thr:Throw =>
-          /* Add the type to the list of throwies. */
+          /* Traverse all children */
+          defaultTraverse()
+
+          /* Add the type to the propagated throwable set. */
           throwies.add(thr.expr.tpe)
 
-        /* Method/function call */
+        /*
+         * Method/function call
+         */
         case apply:Apply =>
+          /* Traverse all children */
+          defaultTraverse()
+
           /* Filter non-@throws annotations */
           val throws = apply.symbol.annotations.filterNot(_.tpe =:= typeOf[throws[_]])
 
@@ -158,7 +206,8 @@ trait NX {
           }
 
         case _ =>
-          //println(s"u: ${tree.getClass.getSimpleName} - $tree")
+          /* Hand off to default traversal method */
+          super.traverse(tree)
       }
     }
 

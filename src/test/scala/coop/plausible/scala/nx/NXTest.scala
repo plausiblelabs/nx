@@ -25,7 +25,7 @@ package coop.plausible.scala.nx
 
 import org.specs2.mutable.Specification
 import java.io.IOException
-import java.net.UnknownHostException
+import java.net.{InetAddress, UnknownHostException}
 
 /**
  * NX implementation tests.
@@ -103,5 +103,58 @@ class NXTest extends Specification {
       @throws[IOException]("explanation")
       def defExpr (flag:Boolean) = { if (!flag) throw new Exception() }
     }.mustEqual(Set(classOf[Exception]))
+  }
+
+
+  "NX try() filtering should" should {
+    "filter exactly matching throwables" in NX.check {
+      try { throw new IOException() } catch {
+        case e:IOException => ()
+      }
+    }.mustEqual(Set())
+
+    "filter subtype matching throwables" in NX.check {
+      try { throw new IOException() } catch {
+        case e:Exception => ()
+      }
+    }.mustEqual(Set())
+
+    "propagate non-matching throwables" in NX.check {
+      try { throw new Exception() } catch {
+        case e:IOException => ()
+      }
+    }.mustEqual(Set(classOf[Exception]))
+
+    "treat conditional catches as incomplete" in NX.check {
+      /* If there's a conditional, the case statement is necessarily treated as a non-match; there's
+       * no way for us to known whether it will verifiably match all possible values at runtime. */
+      try {
+        throw new Exception()
+      } catch {
+        case e:IOException if e.getMessage == "conditional" => ()
+      }
+    }.mustEqual(Set(classOf[Exception]))
+
+    "propagate all throwables within the catch block" in NX.check {
+      def defExpr (flag: Boolean) = {
+        try {
+          throw new IOException()
+        } catch {
+          case e:IOException => if (flag) throw new IOException
+        }
+      }
+    }.mustEqual(Set(classOf[IOException]))
+
+    "propagate all throwables within a conditional block" in NX.check {
+      def defExpr (flag: Boolean) = {
+        try {
+          throw new IOException()
+        } catch {
+          /* Define a condition that vends a UnknownHostException throwable */
+          case e:IOException if InetAddress.getByName("test").isAnyLocalAddress => ()
+          case e:IOException => ()
+        }
+      }
+    }.mustEqual(Set(classOf[UnknownHostException]))
   }
 }
