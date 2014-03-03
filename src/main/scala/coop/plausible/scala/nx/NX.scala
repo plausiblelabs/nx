@@ -113,7 +113,7 @@ trait NX {
      * }}}
      *
      * @param tree The top-level node to be traversed.
-     * @return The set of unhandled exception types. Note that this will contain '''all''' throwables, not just
+     * @return The set of unhandled throwable types. Note that this will contain '''all''' `Throwable` types, not just
      * subclasses of `Exception`.
      */
     def check (tree: Tree): Set[Type] = {

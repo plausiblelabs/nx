@@ -55,7 +55,7 @@ object NXMacro extends MacroTypes {
     /* Perform the validation */
     val unhandled = validator.check(expr.tree)
 
-    /* Convert the set of unhandled exceptions to an AST representing a classOf[Throwable] argument list. */
+    /* Convert the set of unhandled throwables to an AST representing a classOf[Throwable] argument list. */
     val seqArgs = unhandled.map(name => Literal(Constant(name))).toList
 
     /* Select the scala.Throwable class */
@@ -70,7 +70,7 @@ object NXMacro extends MacroTypes {
       List(TypeDef(Modifiers(Flag.DEFERRED /* | SYNTHETIC */), newTypeName("_$1"), List(), TypeBoundsTree(Ident(definitions.NothingClass), throwableClass)))
     )
 
-    /* Compose the Seq[_ <: Throwable](traverse.unhandledExceptions:_*) return value */
+    /* Compose the Seq[_ <: Throwable](unhandled:_*) return value */
     c.Expr(Select(Apply(TypeApply(Ident(definitions.List_apply), List(existentialClassType)), seqArgs), newTermName("toSet")))
   }
 
@@ -97,7 +97,7 @@ object NXMacro extends MacroTypes {
     /* Perform the validation */
     val unhandled = validator.check(expr.tree)
 
-    /* Report any unhandled exceptions */
+    /* Report any unhandled throwables */
     if (unhandled.size > 0)
       println(s"Unhandled: $unhandled")
 
