@@ -137,7 +137,6 @@ trait NX {
 
         /* Explicit throw */
         case thr:Throw =>
-          // println("THROW")
           /* Add the type to the list of throwies. */
           throwies.add(thr.expr.tpe)
 
