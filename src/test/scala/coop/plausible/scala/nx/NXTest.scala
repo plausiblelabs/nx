@@ -54,6 +54,11 @@ class NXTest extends Specification {
    *   non-conditionally throwing exceptions
    */
 
+  /*
+   * Tests detection of:
+   * - Explicit `throw` statements
+   * - Called methods that are annotated with @throws
+   */
   "NX throwable detection" should {
     "find throw statements within method blocks" in NX.check {
       def doSomething (flag: Boolean) { if (flag) throw new IOException() }
@@ -119,7 +124,10 @@ class NXTest extends Specification {
     }.mustEqual(Set(classOf[UnknownHostException]))
   }
 
-  "NX class-level @throws annotation filtering" should {
+  /*
+   * Test @throws annotation handling on primary and auxiliary constructor.
+   */
+  "NX class-level @throws annotation handling" should {
     s"filter exactly matching 'primary constructor' annotations (${specRef("5.3")}) on the class primary constructor" in NX.check {
       class A @throws[IOException]() (flag:Boolean) {
         if (flag) throw new IOException()
@@ -150,7 +158,10 @@ class NXTest extends Specification {
     }.mustEqual(Set())
   }
 
-  "NX def-level @throws annotation filtering" should {
+  /*
+   * Test @throws annotation handling on methods.
+   */
+  "NX def-level @throws annotation handling" should {
     "filter exactly matching throwables" in NX.check {
       @throws[IOException]("explanation")
       def defExpr (flag:Boolean) = { if (!flag) throw new IOException() }
@@ -167,8 +178,10 @@ class NXTest extends Specification {
     }.mustEqual(Set(classOf[Exception]))
   }
 
-
-  "NX try() filtering should" should {
+  /*
+   * Test try+catch analysis
+   */
+  "NX try() evaluation" should {
     "filter exactly matching throwables" in NX.check {
       try { throw new IOException() } catch {
         case e:IOException => ()
