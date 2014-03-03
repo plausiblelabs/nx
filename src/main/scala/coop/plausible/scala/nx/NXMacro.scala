@@ -46,17 +46,17 @@ object NXMacro extends MacroTypes {
       override val universe: c.universe.type = c.universe
     }
 
-    /* Kick off our traversal */
-    val traverse = new core.ExceptionTraversal {
+    /* Instantiate our validator */
+    val validator = new core.ThrowableValidator with core.ErrorReporting {
       /* Hand any errors off to our macro context */
       override def error (pos: core.universe.Position, message: String): Unit = c.error(pos, message)
     }
 
-    /* Perform the traversal */
-    traverse.traverse(expr.tree)
+    /* Perform the validation */
+    val unhandled = validator.check(expr.tree)
 
     /* Convert the set of unhandled exceptions to an AST representing a classOf[Throwable] argument list. */
-    val seqArgs = traverse.unhandledExceptions.map(name => Literal(Constant(name))).toList
+    val seqArgs = unhandled.map(name => Literal(Constant(name))).toList
 
     /* Select the scala.Throwable class */
     val throwableClass = Select(Ident(definitions.ScalaPackage), newTypeName("Throwable"))
@@ -88,19 +88,18 @@ object NXMacro extends MacroTypes {
       override val universe: c.universe.type = c.universe
     }
 
-    /* Kick off our traversal */
-    val traverse = new core.ExceptionTraversal {
+    /* Instantiate our validator */
+    val validator = new core.ThrowableValidator with core.ErrorReporting {
       /* Hand any errors off to our macro context */
       override def error (pos: core.universe.Position, message: String): Unit = c.error(pos, message)
     }
 
-    /* Perform the traversal */
-    traverse.traverse(expr.tree)
+    /* Perform the validation */
+    val unhandled = validator.check(expr.tree)
 
     /* Report any unhandled exceptions */
-    val unhandled = traverse.unhandledExceptions
     if (unhandled.size > 0)
-      println(s"Unhandled: ${traverse.unhandledExceptions}")
+      println(s"Unhandled: $unhandled")
 
     /* Return the original, unmodified expression */
     expr

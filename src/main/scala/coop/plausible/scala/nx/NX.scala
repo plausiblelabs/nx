@@ -47,7 +47,7 @@ object NX {
    *
    * Example usage:
    * {{{
-   *   val unhandledExceptions: Set[Class[_ <: Throwable]] = NX.check {
+   *   val unhandledThrowables: Set[Class[_ <: Throwable]] = NX.check {
    *      java.inet.InetAddress.getByName("some host")
    *   }
    * }}}
@@ -96,48 +96,127 @@ trait NX {
   }
 
   /**
-   * Handles traversal of the tree.
+   * Finds all unhandled throwables at a given tree node.
    */
-  abstract class ExceptionTraversal extends Traverser with ErrorReporting {
+  class ThrowableValidator { self:ErrorReporting =>
+    /**
+     * Traverse `tree` and return all unhandled throwable types.
+     *
+     * The top-level node is treated as an exception propagation point; any exceptions that could be thrown
+     * at the top of the tree are treated as unhandled exceptions.
+     *
+     * For example, given the following input, a value of Set[IOException] will be provided.
+     *
+     * {{{
+     *   @throws[IOException]("Bad data triggers failure") read () = ???
+     *   read()
+     * }}}
+     *
+     * @param tree The top-level node to be traversed.
+     * @return The set of unhandled exception types. Note that this will contain '''all''' throwables, not just
+     * subclasses of `Exception`.
+     */
+    def check (tree: Tree): Set[Type] = {
+      /* Instantiate our traverse handler */
+      val traverse = new ThrowableTraversal {
+        /* Hand any errors off to our enclosing class.*/
+        override def error (pos: Position, message: String): Unit = ThrowableValidator.this.error(pos, message)
+      }
+
+      /* Perform the traversal */
+      traverse.unhandledThrowables(tree)
+    }
+  }
+
+  /**
+   * Handles the actual (mutable) traversal of the tree.
+   */
+  private abstract class ThrowableTraversal extends Traverser with ErrorReporting {
     import scala.collection.mutable
 
     /**
-     * The set of throwables types propagated from the current position in the tree.
-     *
-     * This is updated as the tree is walked; an unfortunate bit of mutability that we
-     * can't escape due to the constraints of the tree API.
-     */
-    private val activeThrowies = mutable.HashSet[Type]()
+     * Traverse `tree` and return all unhandled throwables. The top-level node is treated
+     * as an exception propagation point; any exceptions that could be thrown at the top of the tree
+     * are treated as unhandled exceptions.
 
-    /**
-     * The set of throwables that are known errors. This will be populated at throwable propagation points,
-     * such as method definitions.
+     * @param tree The top-level node to be traversed.
+     * @return The set of unhandled exception types.
      */
-    private val unhandledThrowies = mutable.HashSet[Type]()
+    def unhandledThrowables (tree: Tree): Set[Type] = {
+      /* Perform traversal */
+      traverse(tree)
 
-    /**
-     * Fetch the set of unhandled exceptions.
-     *
-     * @return All unhandled exceptions in the given tree.
-     *
-     * TODO: We need to break this down into active throwables (eg, throwables that are either declared or unhandled)
-     * versus *unhandled* throwables (eg, throwables that are not declared, but could be fired). This will
-     * require defining a new 'propagation point' that occurs not just at ClassDef and DefDef points, but also
-     * at the top-level of the traversal.
-     */
-    def unhandledExceptions: Set[Type] = unhandledThrowies.toSet ++ activeThrowies
+      /* The top of the tree is considered a propagation point */
+      mutableState.declarePropagationPoint(Set())
 
-    /**
-     * Remove all throwables from the throwables set that are equal to or a subtype
-     * of the given exception type.
-     *
-     * @param throwType The exception supertype for which all matching throwable
-     *                  types will be discarded.
-     */
-    private def filterActiveThrowies (throwType: Type): Unit = {
-      activeThrowies --= activeThrowies.filter(_ <:< throwType)
+      /* Provide the result */
+      mutableState.unhandledThrowables
     }
 
+    /**
+     * Mutable state required by the Traverser API. We vend a set of high-level APIs for operating on this state,
+     * as to minimize the mutability headache.
+     */
+    private object mutableState {
+      /**
+       * The set of throwables types that are currently known to be throwable from the current position in the tree,
+       * but may still be caught or declared.
+       */
+      private val candidateThrowies = mutable.HashSet[Type]()
+
+      /**
+       * The set of throwables that are known to be unhandled across the entire tree. This will be populated from
+       * the `candidateThrowies` at throwable propagation points.
+       */
+      private val unhandledThrowies = mutable.HashSet[Type]()
+
+      /**
+       * Discard all candidate throwables that are a valid (sub)type of one of `throwTypes`
+       *
+       * @param throwTypes Types (and transitively, subtypes) to be removed from the set of candidate throwables.
+       */
+      private def filterCandidateThrowies (throwTypes: Set[Type]): Unit = throwTypes.foreach { throwType =>
+        candidateThrowies --= candidateThrowies.filter(_ <:< throwType)
+      }
+
+      /**
+       * Declare one or more candidate throwables at the given point in the tree.
+       *
+       * @param throwTypes The throwable types declared as thrown at this point.
+       */
+      def declareCandidateThrowies (throwTypes: Set[Type]): Unit = candidateThrowies ++= throwTypes
+
+      /**
+       * This method should be called at catch pints to declare any caught throwable types (eg, from try-catch blocks).
+       *
+       * Any throwable types declared in `throwTypes` will be removed from the set of ''candidate'' uncaught throwables.
+       *
+       * @param throwTypes The throwable types declared as caught at this point.
+       */
+      def declareCatchPoint (throwTypes: Set[Type]): Unit = filterCandidateThrowies(throwTypes)
+
+      /**
+       * This should be called at propagation points to declare handled throwables at a propagation point.
+       *
+       * Any throwable types declared in `throwTypes` will be removed from the set of ''candidate'' uncaught throwables,
+       * and any undeclared types will be moved to the list of ''known'' unhandled throwables.
+       *
+       * @param throwTypes The throwable types declared at this propagation point.
+       */
+      def declarePropagationPoint (throwTypes: Set[Type]): Unit = {
+        /* Filter declared types from the candidates */
+        filterCandidateThrowies(throwTypes)
+
+        /* Move all remaining candidates to the list of unhandled throwables */
+        unhandledThrowies ++= candidateThrowies
+        candidateThrowies.clear()
+      }
+
+      /**
+       * Return a snapshot of the set of throwables that are known to be unhandled across the entire tree.
+       */
+      def unhandledThrowables: Set[Type] = unhandledThrowies.toSet
+    }
 
     /** @inheritdoc */
     override def traverse (tree: Tree): Unit = {
@@ -148,55 +227,54 @@ trait NX {
 
       /* Look for exception-related constructs */
       tree match {
-        /*
-         * Class definition
-         */
+        /* Class body and constructors. This is a propagation point. */
         case cls:ClassDef =>
           /*
-           * Find the primary constructor declaration and extract any @throws annotations.
+           * Find the primary constructor declaration.
            *
            * Primary constructor annotations are attached to the constructor method, but the constructor's code is
-           * actually found in the class' body. We have to collect exception types here, and *then* descend
+           * actually found in the class' body. We have to collect exception types from this constructor, and *then* descend
            * into the class body.
            */
-          val exceptionTypes = cls.impl.tpe.declarations.collectFirst {
-            case m: MethodSymbol if m.isPrimaryConstructor =>
-              annotatedThrows(cls, m.annotations) match {
-                case Right(exceptions) =>
-                  exceptions
-                case Left(err) =>
-                  /* Report the error, return an empty set */
-                  error(err.pos, err.message)
-                  Set()
-              }
-          }.getOrElse(Set())
+          val primary = cls.impl.tpe.declarations.collectFirst {
+            case m: MethodSymbol if m.isPrimaryConstructor => m
+          }.get
 
-          /* Traverse into the class to populate the set of active throwables. */
+
+          /* Find @throws annotations; we can't yet declare the propagation point, as the primary constructor's body is not
+           * actually within the method; we have to traverse into the class first. */
+          val throws: Set[Type] = annotatedThrows(cls, primary.annotations) match {
+            case Right(exceptions) => exceptions
+            case Left(err) =>
+              /* Report the error, return an empty set */
+              error(err.pos, err.message)
+              Set()
+          }
+
+          /* Traverse into the class to populate the set of candidate throwables. */
           defaultTraverse()
 
-          /* Filter declared throwables from the propagation set; these are correctly handled. */
-          exceptionTypes.foreach(filterActiveThrowies)
+          /* Declare the propagation point. This uses the annotations found on the primary constructor, and the throwables
+           * found within the class body itself. */
+          mutableState.declarePropagationPoint(throws)
 
-          /* Any undeclared throwables at this point are unhandled errors. */
-          unhandledThrowies ++= activeThrowies
-
-        /*
-         * try statement
-         */
+        /* try statement. This is a catch point. */
         case Try(block, catches, finalizer) =>
           /* Traverse into the try body to find all throwables */
           traverse(block)
 
           /* Extract the exception types of all viable catches. We must filter any that define a guard; there's no way
            * for us to known whether the guard will match all possible values at runtime. */
-          val thrown = catches.filter(_.guard.isEmpty).map(_.pat.tpe)
+          val caught = catches.filter(_.guard.isEmpty).map(_.pat.tpe)
 
-          /* Extract the actual exception types and remove them from the propagation set. */
-          thrown.foreach(filterActiveThrowies)
+          /* Declare the catch point */
+          mutableState.declareCatchPoint(caught.toSet)
 
-          /* Now extract any throwables from subtrees that are *not* caught by the try's catch() block. This must be done
-           * in the same order as they're declared in code so that we report issues in
-           * the correct order:
+          /*
+           * Now extract any throwables from subtrees that should *not* be covered by the try's catch() block. This
+           * must be done in the same order as they're declared in code so that we report issues in the correct
+           * order:
+           *
            * - Guard blocks.
            * - Case statement bodies.
            * - Finalizer block
@@ -208,33 +286,27 @@ trait NX {
           }
           traverse(finalizer)
 
-        /*
-         * Method, function, or constructor definition
-         */
+        /* Method or constructor definition. This is a propagation point. */
         case defdef:DefDef =>
           /* Traverse all children */
           defaultTraverse()
 
-          /* Find @throws declared exception types */
+          /* Find @throws annotations; declare the propagation point */
           annotatedThrows(defdef, defdef.symbol.annotations) match {
             case Right(types) =>
-              /* Filter declared throwables from the propagation set; these are correctly handled. */
-              types.foreach(filterActiveThrowies)
-
-              /* Any undeclared throwables at this point are unhandled errors. */
-              unhandledThrowies ++= activeThrowies
-            case Left(err) => error(err.pos, err.message)
+              mutableState.declarePropagationPoint(types)
+            case Left(err) =>
+              error(err.pos, err.message)
           }
 
-        /*
-         * Explicit throw
-         */
+
+        /* Explicit throw */
         case thr:Throw =>
           /* Traverse all children */
           defaultTraverse()
 
-          /* Add the type to the propagated throwable set. */
-          activeThrowies.add(thr.expr.tpe)
+          /* Add the type to the set of candidate throwables. */
+          mutableState.declareCandidateThrowies(Set(thr.expr.tpe))
 
         /*
          * Method/function call
@@ -243,10 +315,12 @@ trait NX {
           /* Traverse all children */
           defaultTraverse()
 
-          /* Find exception types declared to be thrown by the target; filter them from the propagation set. */
+          /* Find exception types declared to be thrown by the target; declare them as candidate throwables */
           annotatedThrows(apply, apply.symbol.annotations) match {
-            case Right(exceptions) => exceptions.foreach(activeThrowies += _)
-            case Left(err) => error(err.pos, err.message)
+            case Right(exceptions) =>
+              mutableState.declareCandidateThrowies(exceptions)
+            case Left(err) =>
+              error(err.pos, err.message)
           }
 
         case _ =>

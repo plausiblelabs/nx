@@ -58,14 +58,14 @@ class NXPlugin (val global: Global) extends Plugin with NX {
      */
     class ValidationPhase (prev: Phase) extends StdPhase(prev) {
       override def apply (unit: CompilationUnit) = {
-        /* Create our traverser */
-        val traverser = new ExceptionTraversal() {
-          /* Hand any errors off to the compilation unit. */
-          override def error (pos: Position, message: String) = unit.error(pos, message)
+        /* Instantiate our validator */
+        val validator = new ThrowableValidator with ErrorReporting {
+          /* Hand any errors off to our macro context */
+          override def error (pos: Position, message: String): Unit = unit.error(pos, message)
         }
 
-        /* Traverse the compilation unit */
-        traverser(unit.body)
+        /* Perform the validation */
+        validator.check(unit.body)
       }
     }
   }
