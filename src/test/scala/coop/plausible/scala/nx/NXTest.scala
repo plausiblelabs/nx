@@ -82,10 +82,72 @@ class NXTest extends Specification {
       thrower()
     }.mustEqual(Set(classOf[IOException]))
 
+    "find throw annotations on called Scala primary constructors" in NX.check {
+      class A @throws[IOException]() {}
+      new A()
+    }.mustEqual(Set(classOf[IOException]))
+
+    "find throw annotations on called Scala auxiliary constructors" in NX.check {
+      class A (flag:Boolean) {
+        @throws[IOException]() def this () = this(true)
+      }
+      new A()
+    }.mustEqual(Set(classOf[IOException]))
+
+    s"transitively propagate @throw annotations from Scala primary to auxiliary constructors" in NX.check {
+      class A @throws[IOException]() (flag:Boolean) {
+        def this () = { this(true) }
+      }
+
+      /* Call a secondary constructor */
+      new A()
+    }.mustEqual(Set(classOf[IOException]))
+
+    "find throw annotations on internal class constructors" in NX.check {
+      class A (flag:Boolean) {
+        class B @throws[IOException]("") () {
+          if (flag) throw new IOException()
+        }
+      }
+      val a = new A(false)
+      new a.B()
+    }.mustEqual(Set(classOf[IOException]))
+
     "find throw annotations on Java methods" in NX.check {
       /* Defined to throw an UnknownHostException */
       java.net.InetAddress.getByName("")
     }.mustEqual(Set(classOf[UnknownHostException]))
+  }
+
+  "NX class-level @throws annotation filtering" should {
+    s"filter exactly matching 'primary constructor' annotations (${specRef("5.3")}) on the class primary constructor" in NX.check {
+      class A @throws[IOException]() (flag:Boolean) {
+        if (flag) throw new IOException()
+      }
+    }.mustEqual(Set())
+
+    s"filter subtype matching 'primary constructor' annotations (${specRef("5.3")}) on the class primary constructor" in NX.check {
+      class A @throws[Exception]() (flag:Boolean) {
+        if (flag) throw new IOException()
+      }
+    }.mustEqual(Set())
+
+    s"filter matching throwables (${specRef("5.3.1")}) on auxiliary constructors" in NX.check {
+      class A () {
+        @throws[IOException]() def this (flag:Boolean) = {
+          this()
+          if (true) throw new IOException()
+        }
+      }
+    }.mustEqual(Set())
+
+    s"not propagate throwables from nested class definitions" in NX.check {
+      class A (flag:Boolean) {
+        class B @throws[IOException]("") () {
+          if (flag) throw new IOException()
+        }
+      }
+    }.mustEqual(Set())
   }
 
   "NX def-level @throws annotation filtering" should {

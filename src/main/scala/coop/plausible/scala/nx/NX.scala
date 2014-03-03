@@ -23,7 +23,8 @@
 
 package coop.plausible.scala.nx
 
-import scala.reflect.api.Universe
+import scala.reflect.api.{Annotations, Universe}
+import scala.annotation.tailrec
 
 /**
  * No Exceptions
@@ -74,6 +75,14 @@ trait NX {
   import universe._
 
   /**
+   * Represents an NX-defined compiler error.
+   *
+   * @param pos Source code position
+   * @param message Error message.
+   */
+  case class NXCompilerError (pos: Position, message: String)
+
+  /**
    * This trait may be mixed in to support compiler (or macro, or reflection) error reporting.
    */
   trait ErrorReporting {
@@ -98,14 +107,25 @@ trait NX {
      * This is updated as the tree is walked; an unfortunate bit of mutability that we
      * can't escape due to the constraints of the tree API.
      */
-    private val throwies = mutable.HashSet[Type]()
+    private val activeThrowies = mutable.HashSet[Type]()
+
+    /**
+     * The set of throwables that are known errors. This will be populated at throwable propagation points,
+     * such as method definitions.
+     */
+    private val unhandledThrowies = mutable.HashSet[Type]()
 
     /**
      * Fetch the set of unhandled exceptions.
      *
      * @return All unhandled exceptions in the given tree.
+     *
+     * TODO: We need to break this down into active throwables (eg, throwables that are either declared or unhandled)
+     * versus *unhandled* throwables (eg, throwables that are not declared, but could be fired). This will
+     * require defining a new 'propagation point' that occurs not just at ClassDef and DefDef points, but also
+     * at the top-level of the traversal.
      */
-    def unhandledExceptions: Set[Type] = throwies.toSet
+    def unhandledExceptions: Set[Type] = unhandledThrowies.toSet ++ activeThrowies
 
     /**
      * Remove all throwables from the throwables set that are equal to or a subtype
@@ -114,9 +134,10 @@ trait NX {
      * @param throwType The exception supertype for which all matching throwable
      *                  types will be discarded.
      */
-    private def filterMatchingThrowies (throwType:Type): Unit = {
-      throwies --= throwies.filter(_ <:< throwType)
+    private def filterActiveThrowies (throwType: Type): Unit = {
+      activeThrowies --= activeThrowies.filter(_ <:< throwType)
     }
+
 
     /** @inheritdoc */
     override def traverse (tree: Tree): Unit = {
@@ -127,6 +148,38 @@ trait NX {
 
       /* Look for exception-related constructs */
       tree match {
+        /*
+         * Class definition
+         */
+        case cls:ClassDef =>
+          /*
+           * Find the primary constructor declaration and extract any @throws annotations.
+           *
+           * Primary constructor annotations are attached to the constructor method, but the constructor's code is
+           * actually found in the class' body. We have to collect exception types here, and *then* descend
+           * into the class body.
+           */
+          val exceptionTypes = cls.impl.tpe.declarations.collectFirst {
+            case m: MethodSymbol if m.isPrimaryConstructor =>
+              annotatedThrows(cls, m.annotations) match {
+                case Right(exceptions) =>
+                  exceptions
+                case Left(err) =>
+                  /* Report the error, return an empty set */
+                  error(err.pos, err.message)
+                  Set()
+              }
+          }.getOrElse(Set())
+
+          /* Traverse into the class to populate the set of active throwables. */
+          defaultTraverse()
+
+          /* Filter declared throwables from the propagation set; these are correctly handled. */
+          exceptionTypes.foreach(filterActiveThrowies)
+
+          /* Any undeclared throwables at this point are unhandled errors. */
+          unhandledThrowies ++= activeThrowies
+
         /*
          * try statement
          */
@@ -139,7 +192,7 @@ trait NX {
           val thrown = catches.filter(_.guard.isEmpty).map(_.pat.tpe)
 
           /* Extract the actual exception types and remove them from the propagation set. */
-          thrown.foreach(filterMatchingThrowies)
+          thrown.foreach(filterActiveThrowies)
 
           /* Now extract any throwables from subtrees that are *not* caught by the try's catch() block. This must be done
            * in the same order as they're declared in code so that we report issues in
@@ -162,15 +215,15 @@ trait NX {
           /* Traverse all children */
           defaultTraverse()
 
-          /* Find @throws annotations */
-          val throws = defdef.symbol.annotations.filterNot(_.tpe =:= typeOf[throws[_]])
+          /* Find @throws declared exception types */
+          annotatedThrows(defdef, defdef.symbol.annotations) match {
+            case Right(types) =>
+              /* Filter declared throwables from the propagation set; these are correctly handled. */
+              types.foreach(filterActiveThrowies)
 
-          /* Extract the actual exception types and remove them from the propagation set. */
-          throws.foreach { (annotation:Annotation) =>
-            extractThrowsAnnotation(annotation) match {
-              case Some(tpe) => filterMatchingThrowies(tpe)
-              case None => error(defdef.pos, s"Unsupported @throws annotation parameters '$annotation' on called method")
-            }
+              /* Any undeclared throwables at this point are unhandled errors. */
+              unhandledThrowies ++= activeThrowies
+            case Left(err) => error(err.pos, err.message)
           }
 
         /*
@@ -181,7 +234,7 @@ trait NX {
           defaultTraverse()
 
           /* Add the type to the propagated throwable set. */
-          throwies.add(thr.expr.tpe)
+          activeThrowies.add(thr.expr.tpe)
 
         /*
          * Method/function call
@@ -190,19 +243,10 @@ trait NX {
           /* Traverse all children */
           defaultTraverse()
 
-          /* Filter non-@throws annotations */
-          val throws = apply.symbol.annotations.filterNot(_.tpe =:= typeOf[throws[_]])
-
-          /*
-           * Extract the actual exception types.
-           */
-          throws.foreach { (annotation:Annotation) =>
-            extractThrowsAnnotation(annotation) match {
-              case Some(tpe) =>
-                throwies += tpe
-              case None =>
-                error(apply.pos, s"Unsupported @throws annotation parameters '$annotation' on called method")
-            }
+          /* Find exception types declared to be thrown by the target; filter them from the propagation set. */
+          annotatedThrows(apply, apply.symbol.annotations) match {
+            case Right(exceptions) => exceptions.foreach(activeThrowies += _)
+            case Left(err) => error(err.pos, err.message)
           }
 
         case _ =>
@@ -211,25 +255,50 @@ trait NX {
       }
     }
 
+
     /**
-     * Extract the exception type from a @throws annotation.
+     * Given a sequence of annotations, extract the exception type from any @throws annotations.
      *
-     * We support both 'new-style' and 'old-style' @throws constructors:
-     *
-     * - @throws(clazz: Class[T]) (old style)
-     * - @throws[T](cause: String) (new style)
-     *
-     * @return Returns Some(Class[T]) on success, or None if the Annotation's arguments were in an unknown format.
+     * @param owner The tree element to which the annotations are attached.
+     * @param annotations The annotations from which to fetch @throws exception declarations.
+     * @return The set of throwable types declared using @throws annotations.
      */
-    private def extractThrowsAnnotation (annotation: Annotation): Option[Type] = annotation match {
-      // old-style: @throws(classOf[Exception]) (which is throws[T](classOf[Exception]))
-      case Annotation(_, List(Literal(Constant(tpe: Type))), _) => Some(tpe)
+    private def annotatedThrows (owner: Tree, annotations: Seq[Annotation]): Either[NXCompilerError, Set[Type]] = {
+      /* Filter non-@throws annotations */
+      val throwsAnnotations = annotations.filterNot(_.tpe =:= typeOf[throws[_]])
 
-      // new-style: @throws[Exception], @throws[Exception]("cause")
-      case Annotation(TypeRef(_, _, args), _, _) => Some(args.head)
+      /* Perform the actual extraction (recursively) */
+      @tailrec def extractor (head: Annotation, tail: Seq[Annotation], accum: Set[Type]): Either[NXCompilerError, Set[Type]] = {
+        /* Parse this annotation's argument. */
+        val parsed = head match {
+          /* Scala 2.9 API: @throws(classOf[Exception]) (which is throws[T](classOf[Exception])) */
+          case Annotation(_, List(Literal(Constant(tpe: Type))), _) => Right(tpe)
+            
+          /* Scala 2.10 API: @throws[Exception], @throws[Exception]("cause") */
+          case Annotation(TypeRef(_, _, args), _, _) => Right(args.head)
+            
+          /* Unsupported annotation arguments. */
+          case _ => Left(NXCompilerError(owner.pos, s"Unsupported @throws annotation parameters on annotation `$head`"))
+        }
+        
+        /* On success, recursively parse the next annotation. On failure, return immediately */
+        parsed match {
+          /* Extraction succeeded */
+          case Right(tpe) =>
+            if (tail.size == 0) {
+              Right(accum + tpe)
+            } else {
+              extractor(tail.head, tail.drop(1), accum + tpe)
+            }
+          case Left(error) => Left(error)
+        }
+      }
 
-      // Unknown
-      case other => None
+      /* If there are any annotations, extract them */
+      if (throwsAnnotations.size > 0)
+        extractor(throwsAnnotations.head, throwsAnnotations.drop(1), Set())
+      else
+        Right(Set())
     }
   }
 }
