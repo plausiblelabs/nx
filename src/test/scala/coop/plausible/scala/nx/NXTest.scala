@@ -88,18 +88,18 @@ class NXTest extends Specification {
     }.mustEqual(Set(classOf[UnknownHostException]))
   }
 
-  "NX throwable filtering should" in {
-    "filter exactly matching throwables at def @throws annotations" in NX.check {
+  "NX def-level @throws annotation filtering" should {
+    "filter exactly matching throwables" in NX.check {
       @throws[IOException]("explanation")
       def defExpr (flag:Boolean) = { if (!flag) throw new IOException() }
     }.mustEqual(Set())
 
-    "filter subtype matching throwables at def @throws annotations" in NX.check {
+    "filter subtype matching throwables" in NX.check {
       @throws[IOException]("explanation")
       def defExpr (flag:Boolean) = { if (!flag) throw new IOException() }
     }.mustEqual(Set())
 
-    "propagate non-matching throwables at def @throws annotations" in NX.check {
+    "propagate non-matching throwables" in NX.check {
       @throws[IOException]("explanation")
       def defExpr (flag:Boolean) = { if (!flag) throw new Exception() }
     }.mustEqual(Set(classOf[Exception]))
