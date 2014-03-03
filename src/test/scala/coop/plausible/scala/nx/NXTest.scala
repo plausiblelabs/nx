@@ -25,104 +25,83 @@ package coop.plausible.scala.nx
 
 import org.specs2.mutable.Specification
 import java.io.IOException
+import java.net.UnknownHostException
 
 /**
  * NX implementation tests.
  */
 class NXTest extends Specification {
-  /* NOTE: The NX.check() macro used below will elide all of the code within it from
-   * the final output. /None/ of code found within the macro blocks is actually run. */
   import NX.nx
 
-  "NX" should {
-    /* Test extraction of explicit `throw` statements */
-    "find throw statements" in {
-      /* Find nested throw statements */
-      NX.check {
-        class MyClass {
-          def doSomething (flag: Boolean) {
-            if (flag) throw new IOException("I done did something")
-          }
+  /**
+   * Generate a Scala specification reference.
+   *
+   * @param section Scala specification section number.
+   */
+  private def specRef (section: String): String = {
+    /** The Scala specification version used in references. If you add a new reference to the spec,
+      * make sure to update this. */
+    val specVersion = "Scala Spec 2.9, March 3, 2014"
+
+    s"$specVersion, Section $section"
+  }
+
+  /*
+   * NOTES:
+   * - The NX.check() macro used below will elide all of the code within it from
+   *   the final output. /None/ of code found within the macro blocks is actually run.
+   * - We use bool flags in the test code to avoid 'unreachable code' warnings triggered by
+   *   non-conditionally throwing exceptions
+   */
+
+  "NX throwable detection" should {
+    "find throw statements within method blocks" in NX.check {
+      def doSomething (flag: Boolean) { if (flag) throw new IOException() }
+    }.mustEqual(Set(classOf[IOException]))
+
+    s"find throw statements within class 'primary constructors' (${specRef("5.3")}" in NX.check {
+      class MyClass (flag: Boolean) { if (flag) throw new IOException() }
+    }.mustEqual(Set(classOf[IOException]))
+
+    s"find throw statements within class 'auxiliary constructors' (${specRef("5.3.1")}" in NX.check {
+      class MyClass {
+        def this (flag: Boolean) = {
+          this()
+          if (flag) throw new IOException()
         }
+      }
+    }.mustEqual(Set(classOf[IOException]))
 
-        class OtherClass (flag: Boolean) {
-          if (flag) throw new RuntimeException("Ha ha! You thought you were safe!")
-        }
-      } must beEqualTo(Set(classOf[IOException], classOf[RuntimeException]))
-    }
+    "find throw annotations on called Scala methods" in NX.check {
+      @throws[IOException]("") def thrower (): Unit = ()
+      thrower()
+    }.mustEqual(Set(classOf[IOException]))
 
-    /* Test extraction of @throws annotations from called methods that are declared to throw */
-    "find throw annotations on referenced methods" in {
-      /* New-style constructor */
-      @throws[RuntimeException]("") def scalaThrower (): Unit = ()
+    "find throw annotations on called Scala methods that use the Scala 2.9 @throws constructor" in NX.check {
+      @throws(classOf[IOException]) def thrower (): Unit = ()
+      thrower()
+    }.mustEqual(Set(classOf[IOException]))
 
-      /* Old-style constructor */
-      @throws(classOf[IOException]) def oldScalaThrower (): Unit = ()
+    "find throw annotations on Java methods" in NX.check {
+      /* Defined to throw an UnknownHostException */
+      java.net.InetAddress.getByName("")
+    }.mustEqual(Set(classOf[UnknownHostException]))
+  }
 
-      NX.check {
-        /* (External Java) -- defined to throw an UnknownHostException */
-        java.net.InetAddress.getByName("")
+  "NX throwable filtering should" in {
+    "filter exactly matching throwables at def @throws annotations" in NX.check {
+      @throws[IOException]("explanation")
+      def defExpr (flag:Boolean) = { if (!flag) throw new IOException() }
+    }.mustEqual(Set())
 
-        /* (Scala) -- defined to throw a RuntimeException */
-        scalaThrower()
+    "filter subtype matching throwables at def @throws annotations" in NX.check {
+      @throws[IOException]("explanation")
+      def defExpr (flag:Boolean) = { if (!flag) throw new IOException() }
+    }.mustEqual(Set())
 
-        /* (Scala) -- defined to throw an IOException */
-        oldScalaThrower()
-      } must beEqualTo(Set(classOf[java.net.UnknownHostException], classOf[RuntimeException], classOf[IOException]))
-    }
-
-    "exclude throwies based on an enclosing def's @throws annotation" in {
-      NX.check {
-        /* Should exclude the throw below */
-        @throws[IOException]("If I don't like you")
-        def foo (flag:Boolean) = { if (!flag) throw new IOException("No such luck!") }
-      } must beEqualTo(Set())
-    }
-
-    "exclude supertype throwies based on an enclosing def's @throws annotations" in {
-      NX.check {
-        /* Should match on the Exception subtype */
-        @throws[Exception]("If I don't like you")
-        def foo (flag:Boolean) = { if (!flag) throw new IOException("No such luck!") }
-      } must beEqualTo(Set())
-    }
-
-    "propagate non-subtype throwies based on an enclosing def's @throws annotations" in {
-      NX.check {
-        /* Should NOT match on the thrown supertype */
-        @throws[IOException]("If I don't like you")
-        def foo (flag:Boolean) = { if (!flag) throw new Exception("No such luck!") }
-      } must beEqualTo(Set(classOf[Exception]))
-    }
-
-    /*
-    "traverse defs" in {
-      nx {
-        def foo (value: Int) = value
-        true
-      } must beTrue
-    }
-
-    "traverse try-catch" in {
-      nx {
-        try {
-          throw new IOException("Your jib, it's not cut right")
-        } catch {
-          case e:IOException => true
-        }
-      } must beTrue
-    }
-
-    "traverse constructors" in {
-      nx {
-        class TestClass @throws[IOException]("If the name strikes us as unfortunate") (name: String) {
-          def this () = this("a name")
-        }
-        new TestClass()
-        true
-      } must beTrue
-
-    }
-    */
+    "propagate non-matching throwables at def @throws annotations" in NX.check {
+      @throws[IOException]("explanation")
+      def defExpr (flag:Boolean) = { if (!flag) throw new Exception() }
+    }.mustEqual(Set(classOf[Exception]))
   }
 }
