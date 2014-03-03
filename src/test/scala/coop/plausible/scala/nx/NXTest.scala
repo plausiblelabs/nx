@@ -26,6 +26,7 @@ package coop.plausible.scala.nx
 import org.specs2.mutable.Specification
 import java.io.IOException
 import java.net.{InetAddress, UnknownHostException}
+import scala.util.control.NonFatal
 
 /**
  * NX implementation tests.
@@ -231,5 +232,23 @@ class NXTest extends Specification {
         }
       }
     }.mustEqual(Set(classOf[UnknownHostException]))
+  }
+
+ /*
+  * Test escape analysis; verify that we've plugged any type gaps that would allow throwable annotations to be lost.
+  */
+  "NX escape analysis" should {
+    "treat runtime-indeterminate case statements (eg, NonFatal(_)) as non-useable" in NX.check {
+      /*
+       * Applicative matches provide an escape hatch; it's impossible to know how they
+       * will match at runtime. Fortunately, if you're using checked exceptions, blanket
+       * Throwable catches should *not* be necessary.
+       */
+      try {
+        throw new Throwable()
+      } catch {
+        case NonFatal(e) => ()
+      }
+    }.mustEqual(Set(classOf[Throwable]))
   }
 }

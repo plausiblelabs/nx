@@ -263,9 +263,29 @@ trait NX {
           /* Traverse into the try body to find all throwables */
           traverse(block)
 
-          /* Extract the exception types of all viable catches. We must filter any that define a guard; there's no way
-           * for us to known whether the guard will match all possible values at runtime. */
-          val caught = catches.filter(_.guard.isEmpty).map(_.pat.tpe)
+          /*
+           * Extract the exception types of all viable catches. We must exclude the following (usually valid) matches
+           * that rely on runtime pattern matching:
+           *
+           * - Case statements that define a guard.
+           * - Unapply-based statements (eg, NonFatal(e))
+           *
+           * Since the matching is dynamic in those cases, we have no way to assert that the guard will match all
+           * possible values at runtime.
+           *
+           * Medieval, isn't it? This perfectly illustrated how unchecked exceptions destroy type safety.
+           */
+          val caught = catches.filter(_.guard.isEmpty).map(_.pat).filter { pattern =>
+            /* Recursively search for any function calls within the catch pattern. */
+            val fcalls = for (fcall @ Apply(_, _) <- pattern) yield fcall
+
+            /* Disallow patterns that contain unapply calls. */
+            if (fcalls.size > 0) {
+              false
+            } else {
+              true
+            }
+          }.map(_.tpe)
 
           /* Declare the catch point */
           mutableState.declareCatchPoint(caught.toSet)
