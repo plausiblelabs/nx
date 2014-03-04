@@ -21,12 +21,12 @@
  * THE SOFTWARE.
  */
 
-package coop.plausible.scala.nx
+package coop.plausible.scala.nx.internal
 
 /**
  * Defines the NX error types and operations.
  */
-private trait Errors { self:Core =>
+private[nx] trait Errors { self:Core =>
   import universe._
 
   /**

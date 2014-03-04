@@ -1,4 +1,4 @@
 <plugin>
   <name>nx</name>
-  <classname>coop.plausible.scala.nx.NXPlugin</classname>
+  <classname>coop.plausible.scala.nx.internal.CompilerPlugin</classname>
 </plugin>

@@ -21,14 +21,15 @@
  * THE SOFTWARE.
  */
 
-package coop.plausible.scala.nx
+package coop.plausible.scala.nx.internal
 
 import coop.plausible.scala.nx.ValidationResult.{ValidationError, UnhandledThrowable, InvalidThrowsAnnotation, CannotOverride}
+import coop.plausible.scala.nx.{NX, ValidationResult}
 
 /**
  * No Exceptions macro implementation.
  */
-object NXMacro extends MacroTypes {
+object Macro extends MacroTypes {
 
   /**
    * Private implementation of the nx macro; rather than triggering compilation errors,

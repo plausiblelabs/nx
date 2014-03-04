@@ -21,17 +21,18 @@
  * THE SOFTWARE.
  */
 
-package coop.plausible.scala.nx
+package coop.plausible.scala.nx.internal
 
 import scala.tools.nsc.{Phase, Global}
 import scala.tools.nsc.plugins.{PluginComponent, Plugin}
+import coop.plausible.scala.nx.NX
 
 /**
  * No Exceptions compiler plugin.
  *
  * @param global Compiler state.
  */
-class NXPlugin (val global: Global) extends Plugin {
+class CompilerPlugin (val global: Global) extends Plugin {
   import global._
 
   override val name: String = "nx"
@@ -41,15 +42,15 @@ class NXPlugin (val global: Global) extends Plugin {
 
 
   /**
-   * Compiler component that defines our NXMacro compilation phase; hands the
-   * compilation unit off to the actual NXMacro implementation.
+   * Compiler component that defines our Macro compilation phase; hands the
+   * compilation unit off to the actual Macro implementation.
    */
   private object Component extends PluginComponent with NX {
     override def newPhase (prev: Phase )= new ValidationPhase(prev)
 
     override val runsAfter: List[String] = List("refchecks", "typer")
-    override val phaseName: String = NXPlugin.this.name
-    override val global: NXPlugin.this.global.type = NXPlugin.this.global
+    override val phaseName: String = CompilerPlugin.this.name
+    override val global: CompilerPlugin.this.global.type = CompilerPlugin.this.global
 
     /* NX API */
     override val universe = global

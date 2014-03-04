@@ -21,26 +21,25 @@
  * THE SOFTWARE.
  */
 
-package coop.plausible.scala.nx
+package coop.plausible.scala.nx.internal
+
+import org.specs2.mutable.Specification
+import coop.plausible.scala.nx.NX
 
 /**
- * Scala 2.11+ compatibility types.
+ * Test macro-based execution.
+ *
+ * This is a basic smoke test for the macro; the actual core implementation is tested in NXTest.
  */
-trait MacroTypes {
-  /**
-   * The blackbox context type for this Scala release.
-   * Refer to [[http://docs.scala-lang.org/overviews/macros/blackbox-whitebox.html]] for more details.
-   */
-  type Context = scala.reflect.macros.blackbox.Context
-}
-
-/**
- * Scala 2.11+ compatibility APIs.
- */
-trait MacroCompat { self:MacroTypes =>
-  /** The macro context */
-  val context: Context
-
-  def TypeName = context.universe.TypeName
-  def TermName = context.universe.TermName
+class MacroTest extends Specification {
+  "Macro" should {
+    /* Once we support actual error reporting, we should smoke
+     * test that too. */
+    "evaluate an expression at compile-time" in {
+      NX.nx {
+        def foo (value: Int): Int = value + 5
+        foo(5)
+      } must beEqualTo(10)
+    }
+  }
 }

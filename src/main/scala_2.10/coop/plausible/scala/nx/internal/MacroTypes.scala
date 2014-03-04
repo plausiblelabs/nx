@@ -21,7 +21,7 @@
  * THE SOFTWARE.
  */
 
-package coop.plausible.scala.nx
+package coop.plausible.scala.nx.internal
 
 /**
  * Scala 2.10 compatibility types.

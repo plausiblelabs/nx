@@ -21,14 +21,26 @@
  * THE SOFTWARE.
  */
 
-package coop.plausible.scala.nx
-
-import scala.reflect.api.Universe
+package coop.plausible.scala.nx.internal
 
 /**
- * A mixable trait that defines the reflection universe in which NX types will operate.
+ * Scala 2.11+ compatibility types.
  */
-trait Core {
-  /** Reflection universe. */
-  val universe: Universe
+trait MacroTypes {
+  /**
+   * The blackbox context type for this Scala release.
+   * Refer to [[http://docs.scala-lang.org/overviews/macros/blackbox-whitebox.html]] for more details.
+   */
+  type Context = scala.reflect.macros.blackbox.Context
+}
+
+/**
+ * Scala 2.11+ compatibility APIs.
+ */
+trait MacroCompat { self:MacroTypes =>
+  /** The macro context */
+  val context: Context
+
+  def TypeName = context.universe.TypeName
+  def TermName = context.universe.TermName
 }

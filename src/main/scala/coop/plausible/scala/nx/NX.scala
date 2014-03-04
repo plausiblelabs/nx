@@ -23,14 +23,17 @@
 
 package coop.plausible.scala.nx
 
-import scala.reflect.api.{Annotations, Universe}
 import scala.annotation.tailrec
+import coop.plausible.scala.nx.internal.{Errors, Core}
 
 /**
  * No Exceptions.
+ *
+ * Compile-time validation of exceptions.
  */
 object NX {
   import scala.language.experimental.macros
+  import internal.Macro
 
   /**
    * Scan `expr` for unhandled exception errors. Compiler errors will be triggered for any unhandled exceptions.
@@ -39,7 +42,7 @@ object NX {
    * @tparam T The expression type.
    * @return The expression result, or a compiler error if the expression contained unchecked exceptions.
    */
-  def nx[T] (expr: T): T = macro NXMacro.nx_macro[T]
+  def nx[T] (expr: T): T = macro Macro.nx_macro[T]
 
   /**
    * Validate `expr` and return the full validation results; rather than triggering compilation errors,
@@ -59,7 +62,7 @@ object NX {
    * @tparam T The expression type.
    * @return The validation result.
    */
-  private[nx] def validate[T] (expr: T): ValidationResult = macro NXMacro.nx_macro_validate[T]
+  private[nx] def validate[T] (expr: T): ValidationResult = macro Macro.nx_macro_validate[T]
 
   /**
    * Validate `expr` and return the set of unhandled exception types.
@@ -73,15 +76,15 @@ object NX {
    * @tparam T The expression type.
    * @return The set of unhandled exceptions found in `expr`
    */
-  private[nx] def unhandled[T] (expr: T): Set[Class[_ <: Throwable]] = macro NXMacro.nx_macro_unhandled[T]
+  private[nx] def unhandled[T] (expr: T): Set[Class[_ <: Throwable]] = macro Macro.nx_macro_unhandled[T]
 }
 
 /**
  * No Exceptions Implementation.
  *
  * This trait may be mixed in with any valid reflection global, including:
- * - As a compiler plugin (see [[NXPlugin]])
- * - As a compile-time macro (see [[NXMacro]])
+ * - As a compiler plugin (see [[internal.CompilerPlugin]])
+ * - As a compile-time macro (see [[internal.Macro]])
  */
 private trait NX extends Core with Errors {
   import universe._

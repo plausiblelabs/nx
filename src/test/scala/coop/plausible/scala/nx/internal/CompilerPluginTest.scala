@@ -21,7 +21,7 @@
  * THE SOFTWARE.
  */
 
-package coop.plausible.scala.nx
+package coop.plausible.scala.nx.internal
 
 import org.specs2.mutable.Specification
 import scala.tools.nsc.interpreter.IMain
@@ -33,7 +33,7 @@ import org.specs2.main.CommandLineArguments
  *
  * This is a basic smoke test for the plugin; the actual core implementation is tested in NXTest.
  */
-class NXPluginTest extends Specification with CommandLineArguments {
+class CompilerPluginTest extends Specification with CommandLineArguments {
   /*
    * Fetch the path to the NX plugin jar. This must be supplied via sbt, eg:
    * testOptions <+= (packageBin in Compile) map { p =>
@@ -44,7 +44,7 @@ class NXPluginTest extends Specification with CommandLineArguments {
     throw new IllegalArgumentException("Missing nx-plugin-path test argument")
   }
 
-  "NXPlugin" should {
+  "CompilerPlugin" should {
     "run as a compiler plugin" in {
       /* Configure the compiler */
       val settings = new scala.tools.nsc.Settings

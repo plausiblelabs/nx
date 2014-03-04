@@ -21,24 +21,14 @@
  * THE SOFTWARE.
  */
 
-package coop.plausible.scala.nx
+package coop.plausible.scala.nx.internal
 
-import org.specs2.mutable.Specification
+import scala.reflect.api.Universe
 
 /**
- * Test macro-based execution.
- *
- * This is a basic smoke test for the macro; the actual core implementation is tested in NXTest.
+ * A mixable trait that defines the reflection universe in which NX types will operate.
  */
-class NXMacroTest extends Specification {
-  "NXMacro" should {
-    /* Once we support actual error reporting, we should smoke
-     * test that too. */
-    "evaluate an expression at compile-time" in {
-      NX.nx {
-        def foo (value: Int): Int = value + 5
-        foo(5)
-      } must beEqualTo(10)
-    }
-  }
+private[nx] trait Core {
+  /** Reflection universe. */
+  val universe: Universe
 }
