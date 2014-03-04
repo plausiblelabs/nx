@@ -33,7 +33,7 @@ object NX {
   import scala.language.experimental.macros
 
   /**
-   * Runtime validation result of [[NX.check]].
+   * Runtime validation result of [[NX.validate]].
    *
    * @param unhandled Unhandled throwable classes.
    */
