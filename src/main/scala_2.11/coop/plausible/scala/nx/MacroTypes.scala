@@ -33,3 +33,14 @@ trait MacroTypes {
    */
   type Context = scala.reflect.macros.blackbox.Context
 }
+
+/**
+ * Scala 2.11+ compatibility APIs.
+ */
+trait MacroCompat { self:MacroTypes =>
+  /** The macro context */
+  val context: Context
+
+  def TypeName = context.universe.TypeName
+  def TermName = context.universe.TermName
+}

@@ -33,3 +33,29 @@ trait MacroTypes {
    */
   type Context = scala.reflect.macros.Context
 }
+
+/**
+ * Scala 2.10 compatibility APIs.
+ */
+trait MacroCompat { self:MacroTypes =>
+  /** The macro context */
+  val context: Context
+
+  import context.universe._
+
+  /**
+   * 2.10 compatibility shims for the 2.11 TermName API.
+   */
+  object TermName {
+    def apply (s: String) = newTermName(s)
+    def unapply (name: TermName): Option[String] = Some(name.toString)
+  }
+
+  /**
+   * 2.10 compatibility shims for the 2.10 TypeName API.
+   */
+  object TypeName {
+    def apply(s: String) = newTypeName(s)
+    def unapply(name: TypeName): Option[String] = Some(name.toString)
+  }
+}

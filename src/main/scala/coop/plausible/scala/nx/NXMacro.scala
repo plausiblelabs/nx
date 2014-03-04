@@ -37,7 +37,12 @@ object NXMacro extends MacroTypes {
    * @return An expression that will vend the validation results.
    */
   def nx_macro_check[T] (c: Context)(expr: c.Expr[T]): c.Expr[Set[Class[_ <: Throwable]]] = {
-    import c.universe._
+    /* <= 2.10 compatibility shims */
+    val compat = new MacroCompat with MacroTypes {
+      override val context: c.type = c
+    }
+    import compat.{TypeName, TermName}
+    import c.universe.{TypeName => _, TermName => _, _}
 
     /* Instantiate a macro global-based instance of the plugin core */
     val nx = new NX {
@@ -59,19 +64,19 @@ object NXMacro extends MacroTypes {
     val seqArgs = types.map(tpe => Literal(Constant(tpe))).toList
 
     /* Select the scala.Throwable class */
-    val throwableClass = Select(Ident(definitions.ScalaPackage), newTypeName("Throwable"))
+    val throwableClass = Select(Ident(definitions.ScalaPackage),TypeName("Throwable"))
 
     /* Define our Class[_ <: Throwable] type */
     val existentialClassType = ExistentialTypeTree(
       /* Define a new applied Class[T] type of _$1 */
-      AppliedTypeTree(Ident(definitions.ClassClass), List(Ident(newTypeName("_$1")))),
+      AppliedTypeTree(Ident(definitions.ClassClass), List(Ident(TypeName("_$1")))),
 
       /* Define type _$1 = Class[_ <: Throwable] */
-      List(TypeDef(Modifiers(Flag.DEFERRED /* | SYNTHETIC */), newTypeName("_$1"), List(), TypeBoundsTree(Ident(definitions.NothingClass), throwableClass)))
+      List(TypeDef(Modifiers(Flag.DEFERRED /* | SYNTHETIC */), TypeName("_$1"), List(), TypeBoundsTree(Ident(definitions.NothingClass), throwableClass)))
     )
 
     /* Compose the Seq[_ <: Throwable](unhandled:_*) return value */
-    c.Expr(Select(Apply(TypeApply(Ident(definitions.List_apply), List(existentialClassType)), seqArgs), newTermName("toSet")))
+    c.Expr(Select(Apply(TypeApply(Ident(definitions.List_apply), List(existentialClassType)), seqArgs), TermName("toSet")))
   }
 
   /**
