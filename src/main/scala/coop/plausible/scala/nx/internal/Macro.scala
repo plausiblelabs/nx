@@ -102,7 +102,7 @@ object Macro extends MacroTypes {
 
       /* Perform the error mapping */
       errors.map {
-        case e:nx.CannotOverride => ValidationErrorCreate(typeOf[CannotOverride[_]], e.parentMethod.name, e.throwableType)
+        case e:nx.CannotOverride => ValidationErrorCreate(typeOf[CannotOverride[_]], e.methodSymbol.name.toString, e.throwableType)
         case e:nx.InvalidThrowsAnnotation => ValidationErrorCreate(typeOf[InvalidThrowsAnnotation], e.message)
         case e:nx.UnhandledThrowable => ValidationErrorCreate(typeOf[UnhandledThrowable[_]], e.throwableType)
       }.toList

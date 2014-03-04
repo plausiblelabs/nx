@@ -196,7 +196,7 @@ private trait NX extends Core with Errors {
       }
 
       /**
-       * This method should be called at catch pints to declare any caught throwable types (eg, from try-catch blocks).
+       * This methodSymbol should be called at catch pints to declare any caught throwable types (eg, from try-catch blocks).
        *
        * Any throwable types declared in `throwTypes` will be removed from the set of ''candidate'' uncaught throwables.
        *
@@ -242,18 +242,18 @@ private trait NX extends Core with Errors {
           /*
            * Find the primary constructor declaration.
            *
-           * Primary constructor annotations are attached to the constructor method, but the constructor's code is
+           * Primary constructor annotations are attached to the constructor methodSymbol, but the constructor's code is
            * actually found in the class' body. We have to collect exception types from this constructor, and *then* descend
            * into the class body.
            */
-          val primary = cls.impl.tpe.declarations.collectFirst {
-            case m: MethodSymbol if m.isPrimaryConstructor => m
-          }.get
+          val primaryAnnotations = cls.impl.tpe.declarations.collectFirst {
+            case m: MethodSymbol if m.isPrimaryConstructor => m.annotations
+          }.getOrElse(Seq())
 
 
           /* Find @throws annotations; we can't yet declare the propagation point, as the primary constructor's body is not
-           * actually within the method; we have to traverse into the class first. */
-          val throws: Seq[Type] = extractAnnotatedThrows(cls, primary.annotations) match {
+           * actually within the methodSymbol; we have to traverse into the class first. */
+          val throws: Seq[Type] = extractAnnotatedThrows(cls, primaryAnnotations) match {
             case Right(exceptions) => exceptions
             case Left(err) =>
               /* Report the error, return an empty set */
@@ -321,14 +321,48 @@ private trait NX extends Core with Errors {
           /* Traverse all children */
           defaultTraverse()
 
-          /* Find @throws annotations; declare the propagation point */
-          extractAnnotatedThrows(defdef, defdef.symbol.annotations) match {
-            case Right(types) =>
-              mutableState.declarePropagationPoint(types.toSet)
-            case Left(err) =>
-              mutableState.declareValidationError(err)
-          }
+          /*
+           * Find exception types declared to be thrown by either the definition, or any of the symbols it overrides,
+           * and verify that the subtype does not widen the declared superclass @throws.
+           */
+          val throws = for (
+          /* Find directly attached @throws-annotated throwable types. */
+            childThrows <- extractAnnotatedThrows(defdef, defdef.symbol.annotations).left.map(Seq(_)).right;
+            /* Fetch the list of overridden symbols (may be none). */
+            overriddenSymbols <- Right(defdef.symbol.allOverriddenSymbols).right;
 
+            /* Fetch all @throws-annotated throwable types from overridden symbols. */
+            parentThrows <- extractAnnotatedThrows(defdef, overriddenSymbols.map(_.annotations).flatten).left.map(Seq(_)).right;
+
+            /* Unify the parent and child throw sets, after first validating that the overriding method does not widen the
+             * types declared by the parent(s). */
+            result <- {
+              /* Generate errors for any incorrect @throws declarations; if the parent-declared @throws don't specify a
+               * superclass, the child is widening the throw set. */
+              val invalidThrows = if (overriddenSymbols.size > 0) {
+                for (throws <- childThrows if !parentThrows.exists(throws <:< _)) yield throws
+              } else {
+                /* If there are no parents, there can be no errors */
+                Set()
+              }
+
+              /* Declare errors for incorrect @throw declarations */
+              invalidThrows.foreach { throws =>
+                mutableState.declareValidationError(CannotOverride(defdef.pos, throws, defdef.symbol))
+              }
+
+              /* We intentionally provide the unmodified set of declared exceptions; this avoids triggering spurious
+               * UnhandledThrowable errors caused by a CannotOverride error stripping the @throws declaration. */
+              Right(childThrows ++ parentThrows)
+            }.right
+          ) yield result
+
+
+          /* Declare the propagation point, or any errors. */
+          throws match {
+            case Right(types) => mutableState.declarePropagationPoint(types.toSet)
+            case Left(errs) => for (err <- errs) mutableState.declareValidationError(err)
+          }
 
         /* Explicit throw */
         case thr:Throw =>
@@ -345,8 +379,14 @@ private trait NX extends Core with Errors {
           /* Traverse all children */
           defaultTraverse()
 
+          /* Extract both the target's @throws, as well as any symbols overridden by target. */
+          val throws = for (
+            applyThrows <- extractAnnotatedThrows(apply, apply.symbol.annotations).right;
+            parentThrows <- extractAnnotatedThrows(apply, apply.symbol.allOverriddenSymbols.map(_.annotations).flatten).right
+          ) yield applyThrows ++ parentThrows
+
           /* Find exception types declared to be thrown by the target; declare them as candidate throwables */
-          extractAnnotatedThrows(apply, apply.symbol.annotations) match {
+          throws match {
             case Right(exceptions) =>
               mutableState.declareCandidateThrowies(exceptions.map(tpe => Throwie(apply.pos, tpe)))
             case Left(err) =>
@@ -354,11 +394,10 @@ private trait NX extends Core with Errors {
           }
 
         case _ =>
-          /* Hand off to default traversal method */
+          /* Hand off to default traversal methodSymbol */
           super.traverse(tree)
       }
     }
-
 
     /**
      * Given a sequence of annotations, extract the exception type from any @throws annotations.

@@ -25,15 +25,14 @@ package coop.plausible.scala.nx
 
 import org.specs2.mutable.Specification
 import java.io.IOException
-import java.net.{InetAddress, UnknownHostException}
+import java.net.{SocketException, InetAddress, UnknownHostException}
 import scala.util.control.NonFatal
+import coop.plausible.scala.nx.ValidationResult.{UnhandledThrowable, CannotOverride}
 
 /**
  * NX implementation tests.
  */
 class NXTest extends Specification {
-  import NX.nx
-
   /**
    * Generate a Scala specification reference.
    *
@@ -61,7 +60,7 @@ class NXTest extends Specification {
    * - Called methods that are annotated with @throws
    */
   "NX throwable detection" should {
-    "find throw statements within method blocks" in NX.unhandled {
+    "find throw statements within methodSymbol blocks" in NX.unhandled {
       def doSomething (flag: Boolean) { if (flag) throw new IOException() }
     }.mustEqual(Set(classOf[IOException]))
 
@@ -86,6 +85,20 @@ class NXTest extends Specification {
     "find throw annotations on called Scala methods that use the Scala 2.9 @throws constructor" in NX.unhandled {
       @throws(classOf[IOException]) def thrower (): Unit = ()
       thrower()
+    }.mustEqual(Set(classOf[IOException]))
+
+    "transitively propagate @throw annotations from overridden methods when calling contravariantly" in NX.unhandled {
+      trait A { @throws[IOException]() def thrower (): Unit }
+      class B extends A { override def thrower (): Unit = () }
+      val a:A = new B()
+      a.thrower()
+    }.mustEqual(Set(classOf[IOException]))
+
+    "transitively propagate @throw annotations from overridden methods when calling covariantly" in NX.unhandled {
+      trait A { @throws[IOException]() def thrower (): Unit }
+      class B extends A { override def thrower (): Unit = throw new IOException() } /* But B's subclass can! */
+      val b:B = new B()
+      b.thrower()
     }.mustEqual(Set(classOf[IOException]))
 
     "find throw annotations on called Scala primary constructors" in NX.unhandled {
@@ -238,7 +251,7 @@ class NXTest extends Specification {
   * Test escape analysis; verify that we've plugged any type gaps that would allow throwable annotations to be lost.
   */
   "NX escape analysis" should {
-    "treat runtime-indeterminate case statements (eg, NonFatal(_)) as non-useable" in NX.unhandled {
+    "flag compile-time indeterminate case statements (eg, NonFatal(_)) asusableeable" in NX.unhandled {
       /*
        * Applicative matches provide an escape hatch; it's impossible to know how they
        * will match at runtime. Fortunately, if you're using checked exceptions, blanket
@@ -250,5 +263,39 @@ class NXTest extends Specification {
         case NonFatal(e) => ()
       }
     }.mustEqual(Set(classOf[Throwable]))
+
+    "flag single type contravariant @throws declarations on overridden methods" in NX.check {
+      trait A {
+        @throws[IOException] def doSomething (): Unit = {}
+      }
+      class B extends A {
+        @throws[Exception]() override def doSomething (): Unit = throw new IOException()
+      }
+    }.errors.mustEqual(Seq(
+      CannotOverride("doSomething", classOf[Exception])
+    ))
+
+
+    "flag contravariant widening of the exception types on overridden methods" in {
+      NX.check {
+        trait A {
+          @throws[SocketException] def doSomething (): Unit = {}
+        }
+        class B extends A {
+          @throws[UnknownHostException]() override def doSomething (): Unit = throw new UnknownHostException()
+        }
+      }.errors.mustEqual(Seq(
+        CannotOverride("doSomething", classOf[UnknownHostException])
+      ))
+    }
+
+    "permit covariant @throws declarations on overridden methods" in NX.check {
+      trait A {
+        @throws[Exception] def doSomething (): Unit = {}
+      }
+      class B extends A {
+        @throws[IOException]() override def doSomething (): Unit = throw new IOException()
+      }
+    }.errors.mustEqual(Seq())
   }
 }

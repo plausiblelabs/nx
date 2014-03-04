@@ -52,15 +52,14 @@ private[nx] trait Errors { self:Core =>
   }
 
   /**
-   * The overridden method declares non-matching @throws annotations.
+   * The overridden methodSymbol declares non-matching @throws annotations.
    *
-   * @param pos The position of the error in the overridding method definition.
+   * @param pos The position of the error in the overridding methodSymbol definition.
    * @param throwableType The non-useable throwable's type.
-   * @param method The overridding method's symbol.
-   * @param parentMethod The overridden method's symbol.
+   * @param methodSymbol The overridding methodSymbol's symbol.
    */
-  case class CannotOverride (pos: Position, throwableType: Type, method: Symbol, parentMethod: Symbol) extends ValidationError {
-    override val message:String  = s"overridden method ${parentMethod.name} does not throw ${throwableType.typeSymbol.name}"
+  case class CannotOverride (pos: Position, throwableType: Type, methodSymbol: Symbol) extends ValidationError {
+    override val message:String  = s"overridden methodSymbol ${methodSymbol.name} does not throw ${throwableType.typeSymbol.name}"
   }
 
   /**

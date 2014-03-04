@@ -51,12 +51,12 @@ object ValidationResult {
   }
 
   /**
-   * The overridden method declares non-matching @throws annotations.
+   * The overridden methodSymbol declares non-matching @throws annotations.
    *
    * @param throwable The throwable's type.
    */
   case class CannotOverride[T <: Throwable] (parentMethodName: String, throwable: Class[T]) extends ValidationError {
-    override val message:String  = s"overridden method $parentMethodName does not throw ${throwable.getSimpleName}"
+    override val message:String  = s"overridden methodSymbol $parentMethodName does not throw ${throwable.getSimpleName}"
   }
 
   /**
@@ -68,7 +68,7 @@ object ValidationResult {
 }
 
 /**
- * Runtime validation result returned by [[NX.validate]].
+ * Runtime validation result returned by [[NX.check]].
  *
  * @param errors All errors encountered, in the order they were encountered.
  * @param unhandled The full set of unhandled throwable classes.
