@@ -23,11 +23,38 @@
 
 package coop.plausible.scala.nx
 
+import coop.plausible.scala.nx.NX.ValidationResult
+
 /**
  * No Exceptions macro implementation.
  */
 object NXMacro extends MacroTypes {
+
   /**
+   * Private implementation of the nx macro; rather than triggering compilation errors,
+   * it simply returns the set of unhandled exceptions.
+   *
+   * No other validation errors are returned.
+   *
+   * @param c Compiler context.
+   * @param expr Expression to be scanned.
+   * @tparam T Expression type.
+   * @return An expression that will vend the validation results.
+   */
+  def nx_macro_unhandled[T] (c: Context)(expr: c.Expr[T]): c.Expr[Set[Class[_ <: Throwable]]] = {
+    /* <= 2.10 compatibility shims */
+    val compat = new MacroCompat with MacroTypes {
+      override val context: c.type = c
+    }
+    import compat.TermName
+    import c.universe.{TermName => _, _}
+
+    /* Return just the unhandled values (ValidationResult.unhandled) */
+    val resultExpr = nx_macro_validate(c)(expr).in(c.universe.rootMirror)
+    c.Expr(Select(resultExpr.tree, TermName("unhandled")))
+  }
+
+    /**
    * Private implementation of the nx macro; rather than triggering compilation errors,
    * it simply returns the result of the validation.
    *
@@ -36,7 +63,7 @@ object NXMacro extends MacroTypes {
    * @tparam T Expression type.
    * @return An expression that will vend the validation results.
    */
-  def nx_macro_check[T] (c: Context)(expr: c.Expr[T]): c.Expr[Set[Class[_ <: Throwable]]] = {
+  def nx_macro_validate[T] (c: Context)(expr: c.Expr[T]): c.Expr[ValidationResult] = {
     /* <= 2.10 compatibility shims */
     val compat = new MacroCompat with MacroTypes {
       override val context: c.type = c
@@ -51,20 +78,21 @@ object NXMacro extends MacroTypes {
 
     /* Perform the validation */
     val validator = new nx.ThrowableValidator()
-    val unhandled = validator.check(expr.tree)
+    val errors = validator.check(expr.tree)
 
-    /* Convert the set of unhandled throwables to an AST representing a classOf[Throwable] argument list. */
-    // XXX TODO - We need to vend the errors, not just the underlying exception types.
-    val types = unhandled.filter {
+    /* Extract the set of unhandled throwables */
+    val types = errors.view.filter {
       case nx.UnhandledThrowable(_, tpe) => true
       case _ => false
     }.map {
       case nx.UnhandledThrowable(_, tpe) => tpe
-    }
-    val seqArgs = types.map(tpe => Literal(Constant(tpe))).toList
+    }.toSet
 
-    /* Select the scala.Throwable class */
-    val throwableClass = Select(Ident(definitions.ScalaPackage),TypeName("Throwable"))
+    /* Convert the set of unhandled throwables to an AST representing a classOf[Throwable] argument list. */
+    val unhandledArgs = types.map(tpe => Literal(Constant(tpe))).toList
+
+    /* Select the NX.ValidationResult class */
+    val ValidationResult_apply = Select(Ident(typeOf[NX.ValidationResult].typeSymbol.companionSymbol), TermName("apply"))
 
     /* Define our Class[_ <: Throwable] type */
     val existentialClassType = ExistentialTypeTree(
@@ -72,11 +100,13 @@ object NXMacro extends MacroTypes {
       AppliedTypeTree(Ident(definitions.ClassClass), List(Ident(TypeName("_$1")))),
 
       /* Define type _$1 = Class[_ <: Throwable] */
-      List(TypeDef(Modifiers(Flag.DEFERRED /* | SYNTHETIC */), TypeName("_$1"), List(), TypeBoundsTree(Ident(definitions.NothingClass), throwableClass)))
+      List(TypeDef(Modifiers(Flag.DEFERRED /* | SYNTHETIC */), TypeName("_$1"), List(), TypeBoundsTree(Ident(definitions.NothingClass), Ident(typeOf[Throwable].typeSymbol))))
     )
 
     /* Compose the Seq[_ <: Throwable](unhandled:_*) return value */
-    c.Expr(Select(Apply(TypeApply(Ident(definitions.List_apply), List(existentialClassType)), seqArgs), TermName("toSet")))
+    val Set_apply = Select(Ident(weakTypeOf[Set[_]].typeSymbol.companionSymbol), TermName("apply"))
+    val UnhandledSet = Apply(TypeApply(Set_apply, List(existentialClassType)), unhandledArgs)
+    c.Expr(Apply(ValidationResult_apply, List(UnhandledSet)))
   }
 
   /**

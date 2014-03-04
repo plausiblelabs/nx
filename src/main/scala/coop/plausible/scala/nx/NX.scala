@@ -33,7 +33,14 @@ object NX {
   import scala.language.experimental.macros
 
   /**
-   * Scan `expr` for unhandled exceptions.
+   * Runtime validation result of [[NX.check]].
+   *
+   * @param unhandled Unhandled throwable classes.
+   */
+  case class ValidationResult (unhandled: Set[Class[_ <: Throwable]])
+
+  /**
+   * Scan `expr` for unhandled exception errors. Compiler errors will be triggered for any unhandled exceptions.
    *
    * @param expr The expression to be scanned.
    * @tparam T The expression type.
@@ -42,24 +49,38 @@ object NX {
   def nx[T] (expr: T): T = macro NXMacro.nx_macro[T]
 
   /**
-   * Scan `expr` for unhandled exceptions and return the results; rather than triggering compilation errors,
+   * Validate `expr` and return the full validation results; rather than triggering compilation errors,
    * this simply returns the result of the validation.
    *
    * Example usage:
    * {{{
-   *   val unhandledThrowables: Set[Class[_ <: Throwable]] = NX.check {
+   *   val result: ValidationResult = NX.check {
    *      java.inet.InetAddress.getByName("some host")
    *   }
    * }}}
    *
    * Since java.inet.InetAddress.getByName() declares that it throws an UnknownHostException, the result
-   * of NX.check will be a Set(classOf[UnknownHostException]).
+   * of NX.check will be a ValidationResult(errors, Set(classOf[UnknownHostException])).
    *
    * @param expr The expression to be scanned.
    * @tparam T The expression type.
-   * @return All uncaught exception classes.
+   * @return The validation result.
    */
-  private[nx] def check[T] (expr: T): Set[Class[_ <: Throwable]] = macro NXMacro.nx_macro_check[T]
+  private[nx] def validate[T] (expr: T): NX.ValidationResult = macro NXMacro.nx_macro_validate[T]
+
+  /**
+   * Validate `expr` and return the set of unhandled exception types.
+   *
+   * This is equivelant to:
+   * {{{
+   *   NX.check {expr}.unhandled
+   * }}}
+   *
+   * @param expr The expression to be scanned.
+   * @tparam T The expression type.
+   * @return The set of unhandled exceptions found in `expr`
+   */
+  private[nx] def unhandled[T] (expr: T): Set[Class[_ <: Throwable]] = macro NXMacro.nx_macro_unhandled[T]
 }
 
 /**

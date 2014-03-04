@@ -61,15 +61,15 @@ class NXTest extends Specification {
    * - Called methods that are annotated with @throws
    */
   "NX throwable detection" should {
-    "find throw statements within method blocks" in NX.check {
+    "find throw statements within method blocks" in NX.unhandled {
       def doSomething (flag: Boolean) { if (flag) throw new IOException() }
     }.mustEqual(Set(classOf[IOException]))
 
-    s"find throw statements within class 'primary constructors' (${specRef("5.3")}" in NX.check {
+    s"find throw statements within class 'primary constructors' (${specRef("5.3")}" in NX.unhandled {
       class MyClass (flag: Boolean) { if (flag) throw new IOException() }
     }.mustEqual(Set(classOf[IOException]))
 
-    s"find throw statements within class 'auxiliary constructors' (${specRef("5.3.1")}" in NX.check {
+    s"find throw statements within class 'auxiliary constructors' (${specRef("5.3.1")}" in NX.unhandled {
       class MyClass {
         def this (flag: Boolean) = {
           this()
@@ -78,29 +78,29 @@ class NXTest extends Specification {
       }
     }.mustEqual(Set(classOf[IOException]))
 
-    "find throw annotations on called Scala methods" in NX.check {
+    "find throw annotations on called Scala methods" in NX.unhandled {
       @throws[IOException]("") def thrower (): Unit = ()
       thrower()
     }.mustEqual(Set(classOf[IOException]))
 
-    "find throw annotations on called Scala methods that use the Scala 2.9 @throws constructor" in NX.check {
+    "find throw annotations on called Scala methods that use the Scala 2.9 @throws constructor" in NX.unhandled {
       @throws(classOf[IOException]) def thrower (): Unit = ()
       thrower()
     }.mustEqual(Set(classOf[IOException]))
 
-    "find throw annotations on called Scala primary constructors" in NX.check {
+    "find throw annotations on called Scala primary constructors" in NX.unhandled {
       class A @throws[IOException]() {}
       new A()
     }.mustEqual(Set(classOf[IOException]))
 
-    "find throw annotations on called Scala auxiliary constructors" in NX.check {
+    "find throw annotations on called Scala auxiliary constructors" in NX.unhandled {
       class A (flag:Boolean) {
         @throws[IOException]() def this () = this(true)
       }
       new A()
     }.mustEqual(Set(classOf[IOException]))
 
-    s"transitively propagate @throw annotations from Scala primary to auxiliary constructors" in NX.check {
+    s"transitively propagate @throw annotations from Scala primary to auxiliary constructors" in NX.unhandled {
       class A @throws[IOException]() (flag:Boolean) {
         def this () = { this(true) }
       }
@@ -109,7 +109,7 @@ class NXTest extends Specification {
       new A()
     }.mustEqual(Set(classOf[IOException]))
 
-    "find throw annotations on internal class constructors" in NX.check {
+    "find throw annotations on internal class constructors" in NX.unhandled {
       class A (flag:Boolean) {
         class B @throws[IOException]("") () {
           if (flag) throw new IOException()
@@ -119,7 +119,7 @@ class NXTest extends Specification {
       new a.B()
     }.mustEqual(Set(classOf[IOException]))
 
-    "find throw annotations on Java methods" in NX.check {
+    "find throw annotations on Java methods" in NX.unhandled {
       /* Defined to throw an UnknownHostException */
       java.net.InetAddress.getByName("")
     }.mustEqual(Set(classOf[UnknownHostException]))
@@ -129,19 +129,19 @@ class NXTest extends Specification {
    * Test @throws annotation handling on primary and auxiliary constructor.
    */
   "NX class-level @throws annotation handling" should {
-    s"filter exactly matching 'primary constructor' annotations (${specRef("5.3")}) on the class primary constructor" in NX.check {
+    s"filter exactly matching 'primary constructor' annotations (${specRef("5.3")}) on the class primary constructor" in NX.unhandled {
       class A @throws[IOException]() (flag:Boolean) {
         if (flag) throw new IOException()
       }
     }.mustEqual(Set())
 
-    s"filter subtype matching 'primary constructor' annotations (${specRef("5.3")}) on the class primary constructor" in NX.check {
+    s"filter subtype matching 'primary constructor' annotations (${specRef("5.3")}) on the class primary constructor" in NX.unhandled {
       class A @throws[Exception]() (flag:Boolean) {
         if (flag) throw new IOException()
       }
     }.mustEqual(Set())
 
-    s"filter matching throwables (${specRef("5.3.1")}) on auxiliary constructors" in NX.check {
+    s"filter matching throwables (${specRef("5.3.1")}) on auxiliary constructors" in NX.unhandled {
       class A () {
         @throws[IOException]() def this (flag:Boolean) = {
           this()
@@ -150,7 +150,7 @@ class NXTest extends Specification {
       }
     }.mustEqual(Set())
 
-    s"not propagate throwables from nested class definitions" in NX.check {
+    s"not propagate throwables from nested class definitions" in NX.unhandled {
       class A (flag:Boolean) {
         class B @throws[IOException]("") () {
           if (flag) throw new IOException()
@@ -163,17 +163,17 @@ class NXTest extends Specification {
    * Test @throws annotation handling on methods.
    */
   "NX def-level @throws annotation handling" should {
-    "filter exactly matching throwables" in NX.check {
+    "filter exactly matching throwables" in NX.unhandled {
       @throws[IOException]("explanation")
       def defExpr (flag:Boolean) = { if (!flag) throw new IOException() }
     }.mustEqual(Set())
 
-    "filter subtype matching throwables" in NX.check {
+    "filter subtype matching throwables" in NX.unhandled {
       @throws[IOException]("explanation")
       def defExpr (flag:Boolean) = { if (!flag) throw new IOException() }
     }.mustEqual(Set())
 
-    "propagate non-matching throwables" in NX.check {
+    "propagate non-matching throwables" in NX.unhandled {
       @throws[IOException]("explanation")
       def defExpr (flag:Boolean) = { if (!flag) throw new Exception() }
     }.mustEqual(Set(classOf[Exception]))
@@ -183,25 +183,25 @@ class NXTest extends Specification {
    * Test try+catch analysis
    */
   "NX try() evaluation" should {
-    "filter exactly matching throwables" in NX.check {
+    "filter exactly matching throwables" in NX.unhandled {
       try { throw new IOException() } catch {
         case e:IOException => ()
       }
     }.mustEqual(Set())
 
-    "filter subtype matching throwables" in NX.check {
+    "filter subtype matching throwables" in NX.unhandled {
       try { throw new IOException() } catch {
         case e:Exception => ()
       }
     }.mustEqual(Set())
 
-    "propagate non-matching throwables" in NX.check {
+    "propagate non-matching throwables" in NX.unhandled {
       try { throw new Exception() } catch {
         case e:IOException => ()
       }
     }.mustEqual(Set(classOf[Exception]))
 
-    "treat conditional catches as incomplete" in NX.check {
+    "treat conditional catches as incomplete" in NX.unhandled {
       /* If there's a conditional, the case statement is necessarily treated as a non-match; there's
        * no way for us to known whether it will verifiably match all possible values at runtime. */
       try {
@@ -211,7 +211,7 @@ class NXTest extends Specification {
       }
     }.mustEqual(Set(classOf[Exception]))
 
-    "propagate all throwables within the catch block" in NX.check {
+    "propagate all throwables within the catch block" in NX.unhandled {
       def defExpr (flag: Boolean) = {
         try {
           throw new IOException()
@@ -221,7 +221,7 @@ class NXTest extends Specification {
       }
     }.mustEqual(Set(classOf[IOException]))
 
-    "propagate all throwables within a conditional block" in NX.check {
+    "propagate all throwables within a conditional block" in NX.unhandled {
       def defExpr (flag: Boolean) = {
         try {
           throw new IOException()
@@ -238,7 +238,7 @@ class NXTest extends Specification {
   * Test escape analysis; verify that we've plugged any type gaps that would allow throwable annotations to be lost.
   */
   "NX escape analysis" should {
-    "treat runtime-indeterminate case statements (eg, NonFatal(_)) as non-useable" in NX.check {
+    "treat runtime-indeterminate case statements (eg, NonFatal(_)) as non-useable" in NX.unhandled {
       /*
        * Applicative matches provide an escape hatch; it's impossible to know how they
        * will match at runtime. Fortunately, if you're using checked exceptions, blanket
