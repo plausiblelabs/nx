@@ -62,7 +62,7 @@ object NX {
    * @tparam T The expression type.
    * @return The validation result.
    */
-  private[nx] def validate[T] (expr: T): ValidationResult = macro Macro.nx_macro_validate[T]
+  private[nx] def check[T] (expr: T): ValidationResult = macro Macro.nx_macro_check[T]
 
   /**
    * Validate `expr` and return the set of unhandled exception types.

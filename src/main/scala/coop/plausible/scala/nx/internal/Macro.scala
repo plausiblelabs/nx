@@ -51,7 +51,7 @@ object Macro extends MacroTypes {
     import c.universe.{TermName => _, _}
 
     /* Return just the unhandled values (ValidationResult.unhandled) */
-    val resultExpr = nx_macro_validate(c)(expr).in(c.universe.rootMirror)
+    val resultExpr = nx_macro_check(c)(expr).in(c.universe.rootMirror)
     c.Expr(Select(resultExpr.tree, TermName("unhandled")))
   }
 
@@ -64,7 +64,7 @@ object Macro extends MacroTypes {
    * @tparam T Expression type.
    * @return An expression that will vend the validation results.
    */
-  def nx_macro_validate[T] (c: Context)(expr: c.Expr[T]): c.Expr[ValidationResult] = {
+  def nx_macro_check[T] (c: Context)(expr: c.Expr[T]): c.Expr[ValidationResult] = {
     /* <= 2.10 compatibility shims */
     val compat = new MacroCompat with MacroTypes {
       override val context: c.type = c
