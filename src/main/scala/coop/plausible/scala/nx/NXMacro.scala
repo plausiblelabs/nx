@@ -23,7 +23,7 @@
 
 package coop.plausible.scala.nx
 
-import coop.plausible.scala.nx.NX.ValidationResult
+import coop.plausible.scala.nx.ValidationResult.{ValidationError, UnhandledThrowable, InvalidThrowsAnnotation, CannotOverride}
 
 /**
  * No Exceptions macro implementation.
@@ -54,7 +54,7 @@ object NXMacro extends MacroTypes {
     c.Expr(Select(resultExpr.tree, TermName("unhandled")))
   }
 
-    /**
+  /**
    * Private implementation of the nx macro; rather than triggering compilation errors,
    * it simply returns the result of the validation.
    *
@@ -91,8 +91,24 @@ object NXMacro extends MacroTypes {
     /* Convert the set of unhandled throwables to an AST representing a classOf[Throwable] argument list. */
     val unhandledArgs = types.map(tpe => Literal(Constant(tpe))).toList
 
+    /* Map our validation results into runtime-instantiated ValidationError values. */
+    val errorArgs = {
+      /* Generics generic calls to calls to <Class>.apply(constantArgs) */
+      def ValidationErrorCreate (tpe:Type, args:Any*) = {
+        val Case_apply = Select(Ident(tpe.typeSymbol.companionSymbol), TermName("apply"))
+        Apply(Case_apply, args.map(arg => Literal(Constant(arg))).toList)
+      }
+
+      /* Perform the error mapping */
+      errors.map {
+        case e:nx.CannotOverride => ValidationErrorCreate(typeOf[CannotOverride[_]], e.parentMethod.name, e.throwableType)
+        case e:nx.InvalidThrowsAnnotation => ValidationErrorCreate(typeOf[InvalidThrowsAnnotation], e.message)
+        case e:nx.UnhandledThrowable => ValidationErrorCreate(typeOf[UnhandledThrowable[_]], e.throwableType)
+      }.toList
+    }
+
     /* Select the NX.ValidationResult class */
-    val ValidationResult_apply = Select(Ident(typeOf[NX.ValidationResult].typeSymbol.companionSymbol), TermName("apply"))
+    val ValidationResult_apply = Select(Ident(typeOf[ValidationResult].typeSymbol.companionSymbol), TermName("apply"))
 
     /* Define our Class[_ <: Throwable] type */
     val existentialClassType = ExistentialTypeTree(
@@ -105,8 +121,9 @@ object NXMacro extends MacroTypes {
 
     /* Compose the Seq[_ <: Throwable](unhandled:_*) return value */
     val Set_apply = Select(Ident(weakTypeOf[Set[_]].typeSymbol.companionSymbol), TermName("apply"))
+    val AllErrors = Apply(TypeApply(Ident(definitions.List_apply), List(Ident(typeOf[ValidationError].typeSymbol))), errorArgs)
     val UnhandledSet = Apply(TypeApply(Set_apply, List(existentialClassType)), unhandledArgs)
-    c.Expr(Apply(ValidationResult_apply, List(UnhandledSet)))
+    c.Expr(Apply(ValidationResult_apply, List(AllErrors, UnhandledSet)))
   }
 
   /**
