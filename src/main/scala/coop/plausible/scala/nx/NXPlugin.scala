@@ -31,26 +31,28 @@ import scala.tools.nsc.plugins.{PluginComponent, Plugin}
  *
  * @param global Compiler state.
  */
-class NXPlugin (val global: Global) extends Plugin with NX {
+class NXPlugin (val global: Global) extends Plugin {
   import global._
 
   override val name: String = "nx"
   override val description: String = "Checked exceptions for Scala. If you're stuck using exceptions, insist on Checked Brand Exceptions™."
   override val components: List[PluginComponent] = List(Component)
 
-  /* NX API */
-  override val universe: global.type = global
+
 
   /**
    * Compiler component that defines our NXMacro compilation phase; hands the
    * compilation unit off to the actual NXMacro implementation.
    */
-  private object Component extends PluginComponent {
+  private object Component extends PluginComponent with NX {
     override def newPhase (prev: Phase )= new ValidationPhase(prev)
 
     override val runsAfter: List[String] = List("refchecks", "typer")
     override val phaseName: String = NXPlugin.this.name
     override val global: NXPlugin.this.global.type = NXPlugin.this.global
+
+    /* NX API */
+    override val universe = global
 
     /**
      * Exception validation phase.
@@ -58,13 +60,8 @@ class NXPlugin (val global: Global) extends Plugin with NX {
      */
     class ValidationPhase (prev: Phase) extends StdPhase(prev) {
       override def apply (unit: CompilationUnit) = {
-        /* Instantiate our validator */
-        val validator = new ThrowableValidator with ErrorReporting {
-          /* Hand any errors off to our macro context */
-          override def error (pos: Position, message: String): Unit = unit.error(pos, message)
-        }
-
         /* Perform the validation */
+        val validator = new ThrowableValidator()
         validator.check(unit.body)
       }
     }

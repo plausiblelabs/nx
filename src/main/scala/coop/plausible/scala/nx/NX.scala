@@ -27,7 +27,7 @@ import scala.reflect.api.{Annotations, Universe}
 import scala.annotation.tailrec
 
 /**
- * No Exceptions
+ * No Exceptions.
  */
 object NX {
   import scala.language.experimental.macros
@@ -66,46 +66,68 @@ object NX {
  * No Exceptions Implementation.
  *
  * This trait may be mixed in with any valid reflection global, including:
- * - As a compiler plugin (see [[NXPlugin]], and
- * - As a compile-time macro (see [[NXMacro]]
+ * - As a compiler plugin (see [[NXPlugin]])
+ * - As a compile-time macro (see [[NXMacro]])
  */
-trait NX {
+private trait NX {
   /** Reflection universe. */
   val universe: Universe
   import universe._
 
   /**
-   * Represents an NX-defined compiler error.
-   *
-   * @param pos Source code position
-   * @param message Error message.
+   * An NX validation error.
    */
-  case class NXCompilerError (pos: Position, message: String)
+  trait ValidationError {
+    /** The error position. */
+    val pos: Position
+
+    /** The error message. */
+    val message: String
+  }
 
   /**
-   * This trait may be mixed in to support compiler (or macro, or reflection) error reporting.
+   * An unhandled exception that is known to be throwable at `position`.
+   *
+   * @param pos The position at which the throwable may be raised.
+   * @param throwableType The throwable's type.
    */
-  trait ErrorReporting {
-    /**
-     * Report an error at `pos` with the given `message`.
-     *
-     * @param pos The position of the error.
-     * @param message The error message.
-     */
-    def error (pos: Position, message: String)
+  case class UnhandledThrowable (pos: Position, throwableType: Type) extends ValidationError {
+    override val message:String  = s"unreported exception ${throwableType.typeSymbol.name}; must be caught or declared to be thrown. " +
+      "Consider the use of monadic error handling, such as scala.util.Either."
   }
+
+  /**
+   * The overridden method declares non-matching @throws annotations.
+   *
+   * @param pos The position of the error in the overridding method definition.
+   * @param throwableType The non-useable throwable's type.
+   * @param method The overridding method's symbol.
+   * @param parentMethod The overridden method's symbol.
+   */
+  case class CannotOverride (pos: Position, throwableType: Type, method: Symbol, parentMethod: Symbol) extends ValidationError {
+    override val message:String  = s"overridden method ${parentMethod.name} does not throw ${throwableType.typeSymbol.name}"
+  }
+
+  /**
+   * A @throws annotation could not be parsed.
+   *
+   * @param pos The error position.
+   * @param message A descriptive error message.
+   */
+  case class InvalidThrowsAnnotation (pos: Position, message: String) extends ValidationError
 
   /**
    * Finds all unhandled throwables at a given tree node.
    */
-  class ThrowableValidator { self:ErrorReporting =>
+  class ThrowableValidator {
     /**
-     * Traverse `tree` and return all unhandled throwable types.
+     * Traverse `tree` and return all validation errors. Note that this will contain '''all''' unhandled `Throwable`
+     * types, not just subclasses of `Exception`.
      *
      * The top-level node is treated as an exception propagation point; any exceptions that could be thrown
      * at the top of the tree are treated as unhandled exceptions.
      *
-     * For example, given the following input, a value of Set[IOException] will be provided.
+     * For example, given the following input, a value of Seq[UnhandledThrowable(... IOException)] will be provided.
      *
      * {{{
      *   @throws[IOException]("Bad data triggers failure") read () = ???
@@ -113,36 +135,32 @@ trait NX {
      * }}}
      *
      * @param tree The top-level node to be traversed.
-     * @return The set of unhandled throwable types. Note that this will contain '''all''' `Throwable` types, not just
-     * subclasses of `Exception`.
+     * @return An ordered sequence of validation errors.
      */
-    def check (tree: Tree): Set[Type] = {
+    def check (tree: Tree): Seq[ValidationError] = {
       /* Instantiate our traverse handler */
-      val traverse = new ThrowableTraversal {
-        /* Hand any errors off to our enclosing class.*/
-        override def error (pos: Position, message: String): Unit = ThrowableValidator.this.error(pos, message)
-      }
+      val traverse = new ThrowableTraversal()
 
       /* Perform the traversal */
-      traverse.unhandledThrowables(tree)
+      traverse.validationErrors(tree)
     }
   }
 
   /**
    * Handles the actual (mutable) traversal of the tree.
    */
-  private abstract class ThrowableTraversal extends Traverser with ErrorReporting {
+  private class ThrowableTraversal extends Traverser {
     import scala.collection.mutable
 
     /**
-     * Traverse `tree` and return all unhandled throwables. The top-level node is treated
+     * Traverse `tree` and return all validation errors. The top-level node is treated
      * as an exception propagation point; any exceptions that could be thrown at the top of the tree
      * are treated as unhandled exceptions.
 
      * @param tree The top-level node to be traversed.
-     * @return The set of unhandled exception types.
+     * @return An ordered sequence of validation errors.
      */
-    def unhandledThrowables (tree: Tree): Set[Type] = {
+    def validationErrors (tree: Tree): Seq[ValidationError] = {
       /* Perform traversal */
       traverse(tree)
 
@@ -150,8 +168,16 @@ trait NX {
       mutableState.declarePropagationPoint(Set())
 
       /* Provide the result */
-      mutableState.unhandledThrowables
+      mutableState.validationErrors
     }
+
+    /**
+     * Represents a candidate throwing entity that may be caught or declared.
+     *
+     * @param pos The position at which the throwable may be raised.
+     * @param tpe The throwable's type.
+     */
+    private case class Throwie (pos: Position, tpe: Type)
 
     /**
      * Mutable state required by the Traverser API. We vend a set of high-level APIs for operating on this state,
@@ -162,13 +188,13 @@ trait NX {
        * The set of throwables types that are currently known to be throwable from the current position in the tree,
        * but may still be caught or declared.
        */
-      private val candidateThrowies = mutable.HashSet[Type]()
+      private var candidateThrowies = Seq[Throwie]()
 
       /**
-       * The set of throwables that are known to be unhandled across the entire tree. This will be populated from
-       * the `candidateThrowies` at throwable propagation points.
+       * The set of validation errors that are found across the entire tree. This will be populated explicitly
+       * during walking, as well as from the `candidateThrowies` at throwable propagation points.
        */
-      private val unhandledThrowies = mutable.HashSet[Type]()
+      private val validationErrorList = mutable.MutableList[ValidationError]()
 
       /**
        * Discard all candidate throwables that are a valid (sub)type of one of `throwTypes`
@@ -176,15 +202,25 @@ trait NX {
        * @param throwTypes Types (and transitively, subtypes) to be removed from the set of candidate throwables.
        */
       private def filterCandidateThrowies (throwTypes: Set[Type]): Unit = throwTypes.foreach { throwType =>
-        candidateThrowies --= candidateThrowies.filter(_ <:< throwType)
+        candidateThrowies = candidateThrowies.filterNot(_.tpe <:< throwType)
+      }
+
+      /**
+       * Declare an explicit validation error. This will be added to the set of validation errors
+       * available upon completion of a traversal.
+       */
+      def declareValidationError (error: ValidationError): Unit = {
+        validationErrorList += error
       }
 
       /**
        * Declare one or more candidate throwables at the given point in the tree.
        *
-       * @param throwTypes The throwable types declared as thrown at this point.
+       * @param throwies The throwies that may be thrown at this point.
        */
-      def declareCandidateThrowies (throwTypes: Set[Type]): Unit = candidateThrowies ++= throwTypes
+      def declareCandidateThrowies (throwies: Seq[Throwie]): Unit = {
+        candidateThrowies = candidateThrowies ++: throwies
+      }
 
       /**
        * This method should be called at catch pints to declare any caught throwable types (eg, from try-catch blocks).
@@ -208,14 +244,15 @@ trait NX {
         filterCandidateThrowies(throwTypes)
 
         /* Move all remaining candidates to the list of unhandled throwables */
-        unhandledThrowies ++= candidateThrowies
-        candidateThrowies.clear()
+        validationErrorList ++= candidateThrowies.map { t => UnhandledThrowable(t.pos, t.tpe) }
+        candidateThrowies = List()
       }
 
       /**
-       * Return a snapshot of the set of throwables that are known to be unhandled across the entire tree.
+       * Return a snapshot of the currently collected set of validation errors. The errors will be ordered
+       * according to the original point in the tree in which they occurred.
        */
-      def unhandledThrowables: Set[Type] = unhandledThrowies.toSet
+      def validationErrors: Seq[ValidationError] = validationErrorList.toSeq
     }
 
     /** @inheritdoc */
@@ -243,12 +280,12 @@ trait NX {
 
           /* Find @throws annotations; we can't yet declare the propagation point, as the primary constructor's body is not
            * actually within the method; we have to traverse into the class first. */
-          val throws: Set[Type] = annotatedThrows(cls, primary.annotations) match {
+          val throws: Seq[Type] = extractAnnotatedThrows(cls, primary.annotations) match {
             case Right(exceptions) => exceptions
             case Left(err) =>
               /* Report the error, return an empty set */
-              error(err.pos, err.message)
-              Set()
+              mutableState.declareValidationError(err)
+              Seq()
           }
 
           /* Traverse into the class to populate the set of candidate throwables. */
@@ -256,7 +293,7 @@ trait NX {
 
           /* Declare the propagation point. This uses the annotations found on the primary constructor, and the throwables
            * found within the class body itself. */
-          mutableState.declarePropagationPoint(throws)
+          mutableState.declarePropagationPoint(throws.toSet)
 
         /* try statement. This is a catch point. */
         case Try(block, catches, finalizer) =>
@@ -312,11 +349,11 @@ trait NX {
           defaultTraverse()
 
           /* Find @throws annotations; declare the propagation point */
-          annotatedThrows(defdef, defdef.symbol.annotations) match {
+          extractAnnotatedThrows(defdef, defdef.symbol.annotations) match {
             case Right(types) =>
-              mutableState.declarePropagationPoint(types)
+              mutableState.declarePropagationPoint(types.toSet)
             case Left(err) =>
-              error(err.pos, err.message)
+              mutableState.declareValidationError(err)
           }
 
 
@@ -326,7 +363,7 @@ trait NX {
           defaultTraverse()
 
           /* Add the type to the set of candidate throwables. */
-          mutableState.declareCandidateThrowies(Set(thr.expr.tpe))
+          mutableState.declareCandidateThrowies(Seq(Throwie(thr.pos, thr.expr.tpe)))
 
         /*
          * Method/function call
@@ -336,11 +373,11 @@ trait NX {
           defaultTraverse()
 
           /* Find exception types declared to be thrown by the target; declare them as candidate throwables */
-          annotatedThrows(apply, apply.symbol.annotations) match {
+          extractAnnotatedThrows(apply, apply.symbol.annotations) match {
             case Right(exceptions) =>
-              mutableState.declareCandidateThrowies(exceptions)
+              mutableState.declareCandidateThrowies(exceptions.map(tpe => Throwie(apply.pos, tpe)))
             case Left(err) =>
-              error(err.pos, err.message)
+              mutableState.declareValidationError(err)
           }
 
         case _ =>
@@ -355,14 +392,14 @@ trait NX {
      *
      * @param owner The tree element to which the annotations are attached.
      * @param annotations The annotations from which to fetch @throws exception declarations.
-     * @return The set of throwable types declared using @throws annotations.
+     * @return The sequence of throwable types declared using @throws annotations.
      */
-    private def annotatedThrows (owner: Tree, annotations: Seq[Annotation]): Either[NXCompilerError, Set[Type]] = {
+    private def extractAnnotatedThrows (owner: Tree, annotations: Seq[Annotation]): Either[ValidationError, Seq[Type]] = {
       /* Filter non-@throws annotations */
       val throwsAnnotations = annotations.filterNot(_.tpe =:= typeOf[throws[_]])
 
       /* Perform the actual extraction (recursively) */
-      @tailrec def extractor (head: Annotation, tail: Seq[Annotation], accum: Set[Type]): Either[NXCompilerError, Set[Type]] = {
+      @tailrec def extractor (head: Annotation, tail: Seq[Annotation], accum: Seq[Type]): Either[ValidationError, Seq[Type]] = {
         /* Parse this annotation's argument. */
         val parsed = head match {
           /* Scala 2.9 API: @throws(classOf[Exception]) (which is throws[T](classOf[Exception])) */
@@ -372,7 +409,7 @@ trait NX {
           case Annotation(TypeRef(_, _, args), _, _) => Right(args.head)
             
           /* Unsupported annotation arguments. */
-          case _ => Left(NXCompilerError(owner.pos, s"Unsupported @throws annotation parameters on annotation `$head`"))
+          case _ => Left(InvalidThrowsAnnotation(owner.pos, s"Unsupported @throws annotation parameters on annotation `$head`"))
         }
         
         /* On success, recursively parse the next annotation. On failure, return immediately */
@@ -380,9 +417,9 @@ trait NX {
           /* Extraction succeeded */
           case Right(tpe) =>
             if (tail.size == 0) {
-              Right(accum + tpe)
+              Right(accum :+ tpe)
             } else {
-              extractor(tail.head, tail.drop(1), accum + tpe)
+              extractor(tail.head, tail.drop(1), accum :+ tpe)
             }
           case Left(error) => Left(error)
         }
@@ -390,9 +427,9 @@ trait NX {
 
       /* If there are any annotations, extract them */
       if (throwsAnnotations.size > 0)
-        extractor(throwsAnnotations.head, throwsAnnotations.drop(1), Set())
+        extractor(throwsAnnotations.head, throwsAnnotations.drop(1), Vector())
       else
-        Right(Set())
+        Right(Vector())
     }
   }
 }

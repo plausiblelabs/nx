@@ -23,8 +23,6 @@
 
 package coop.plausible.scala.nx
 
-import scala.reflect.api.Universe
-
 /**
  * No Exceptions macro implementation.
  */
@@ -42,21 +40,23 @@ object NXMacro extends MacroTypes {
     import c.universe._
 
     /* Instantiate a macro global-based instance of the plugin core */
-    val core = new NX {
+    val nx = new NX {
       override val universe: c.universe.type = c.universe
     }
 
-    /* Instantiate our validator */
-    val validator = new core.ThrowableValidator with core.ErrorReporting {
-      /* Hand any errors off to our macro context */
-      override def error (pos: core.universe.Position, message: String): Unit = c.error(pos, message)
-    }
-
     /* Perform the validation */
+    val validator = new nx.ThrowableValidator()
     val unhandled = validator.check(expr.tree)
 
     /* Convert the set of unhandled throwables to an AST representing a classOf[Throwable] argument list. */
-    val seqArgs = unhandled.map(name => Literal(Constant(name))).toList
+    // XXX TODO - We need to vend the errors, not just the underlying exception types.
+    val types = unhandled.filter {
+      case nx.UnhandledThrowable(_, tpe) => true
+      case _ => false
+    }.map {
+      case nx.UnhandledThrowable(_, tpe) => tpe
+    }
+    val seqArgs = types.map(tpe => Literal(Constant(tpe))).toList
 
     /* Select the scala.Throwable class */
     val throwableClass = Select(Ident(definitions.ScalaPackage), newTypeName("Throwable"))
@@ -88,13 +88,8 @@ object NXMacro extends MacroTypes {
       override val universe: c.universe.type = c.universe
     }
 
-    /* Instantiate our validator */
-    val validator = new core.ThrowableValidator with core.ErrorReporting {
-      /* Hand any errors off to our macro context */
-      override def error (pos: core.universe.Position, message: String): Unit = c.error(pos, message)
-    }
-
     /* Perform the validation */
+    val validator = new core.ThrowableValidator()
     val unhandled = validator.check(expr.tree)
 
     /* Report any unhandled throwables */
