@@ -388,7 +388,7 @@ private trait NX extends Core with Errors {
           /* Find exception types declared to be thrown by the target; declare them as candidate throwables */
           throws match {
             case Right(exceptions) =>
-              mutableState.declareCandidateThrowies(exceptions.map(tpe => Throwie(apply.pos, tpe)))
+              mutableState.declareCandidateThrowies(exceptions.map(tpe => Throwie(apply.fun.pos, tpe)))
             case Left(err) =>
               mutableState.declareValidationError(err)
           }
