@@ -198,6 +198,45 @@ class NXTest extends Specification {
   }
 
   /*
+   * Test inherited @throws annotation handling
+   */
+  "NX inheritance validation" should {
+    "flag single type contravariant @throws declarations on overridden methods" in NX.check {
+      trait A {
+        @throws[IOException] def doSomething (): Unit = {}
+      }
+      class B extends A {
+        @throws[Exception]() override def doSomething (): Unit = throw new IOException()
+      }
+    }.errors.mustEqual(Seq(
+      CannotOverride("doSomething", classOf[Exception])
+    ))
+
+
+    "flag contravariant widening of the exception types on overridden methods" in {
+      NX.check {
+        trait A {
+          @throws[SocketException] def doSomething (): Unit = {}
+        }
+        class B extends A {
+          @throws[UnknownHostException]() override def doSomething (): Unit = throw new UnknownHostException()
+        }
+      }.errors.mustEqual(Seq(
+        CannotOverride("doSomething", classOf[UnknownHostException])
+      ))
+    }
+
+    "permit covariant @throws declarations on overridden methods" in NX.check {
+      trait A {
+        @throws[Exception] def doSomething (): Unit = {}
+      }
+      class B extends A {
+        @throws[IOException]() override def doSomething (): Unit = throw new IOException()
+      }
+    }.errors.mustEqual(Seq())
+  }
+
+  /*
    * Test try+catch analysis
    */
   "NX try() evaluation" should {
@@ -268,40 +307,6 @@ class NXTest extends Specification {
         case NonFatal(e) => ()
       }
     }.mustEqual(Set(classOf[Throwable]))
-
-    "flag single type contravariant @throws declarations on overridden methods" in NX.check {
-      trait A {
-        @throws[IOException] def doSomething (): Unit = {}
-      }
-      class B extends A {
-        @throws[Exception]() override def doSomething (): Unit = throw new IOException()
-      }
-    }.errors.mustEqual(Seq(
-      CannotOverride("doSomething", classOf[Exception])
-    ))
-
-
-    "flag contravariant widening of the exception types on overridden methods" in {
-      NX.check {
-        trait A {
-          @throws[SocketException] def doSomething (): Unit = {}
-        }
-        class B extends A {
-          @throws[UnknownHostException]() override def doSomething (): Unit = throw new UnknownHostException()
-        }
-      }.errors.mustEqual(Seq(
-        CannotOverride("doSomething", classOf[UnknownHostException])
-      ))
-    }
-
-    "permit covariant @throws declarations on overridden methods" in NX.check {
-      trait A {
-        @throws[Exception] def doSomething (): Unit = {}
-      }
-      class B extends A {
-        @throws[IOException]() override def doSomething (): Unit = throw new IOException()
-      }
-    }.errors.mustEqual(Seq())
 
     "flag assignment-based @throws annotation erasure" in NX.check {
       @throws[IOException]() def thrower (flag: Boolean): Unit = if (flag) throw new IOException()
