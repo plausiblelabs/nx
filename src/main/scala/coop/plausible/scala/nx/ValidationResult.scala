@@ -68,7 +68,7 @@ object ValidationResult {
 }
 
 /**
- * Runtime validation result returned by [[NX.check]].
+ * Runtime validation result returned by [[NX]]
  *
  * @param errors All errors encountered, in the order they were encountered.
  * @param unhandled The full set of unhandled throwable classes.

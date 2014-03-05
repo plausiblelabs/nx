@@ -146,7 +146,7 @@ object Macro extends MacroTypes {
   }
 
   /**
-   * Implementation of the nx(checked) macro. Refer to [[NX.nx]] for the public API.
+   * Implementation of the nx(checked) macro. Refer to `NX.nx` for the public API
    *
    * @param c Compiler context.
    * @param checked Checked exception configuration, or null to use the standard config.
@@ -171,7 +171,7 @@ object Macro extends MacroTypes {
   }
 
   /**
-   * Implementation of the nx macro. Refer to [[NX.nx]] for the public API.
+   * Implementation of the nx macro. Refer to `NX.nx` for the public API
    *
    * @param c Compiler context.
    * @param expr Expression to be scanned.

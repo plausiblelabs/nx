@@ -44,7 +44,6 @@ class CompilerPlugin (val global: Global) extends Plugin {
    */
   private var checkedExceptionStrategy: Component.CheckedExceptionStrategy = Component.StandardCheckedExceptionStrategy
 
-  /** @inheritdoc */
   override def processOptions(options: List[String], error: String => Unit) {
     /*
      * Parse our known plugin options
@@ -62,7 +61,6 @@ class CompilerPlugin (val global: Global) extends Plugin {
     }
   }
 
-  /** @inheritdoc */
   override val optionsHelp: Option[String] = Some(Seq(
     "  -P:nx:checked:standard             As in Java, RuntimeException and Error subclasses will be unchecked.",
     "  -P:nx:checked:strict               Only subclasses of Error will be unchecked.",
