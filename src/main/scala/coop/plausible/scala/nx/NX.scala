@@ -24,7 +24,7 @@
 package coop.plausible.scala.nx
 
 import scala.annotation.tailrec
-import coop.plausible.scala.nx.internal.{Errors, Core}
+import coop.plausible.scala.nx.internal.{CheckedExceptionStrategies, Errors, Core}
 
 /**
  * No Exceptions.
@@ -45,8 +45,17 @@ object NX {
   def nx[T] (expr: T): T = macro Macro.nx_macro[T]
 
   /**
-   * Validate `expr` and return the full validation results; rather than triggering compilation errors,
-   * this simply returns the result of the validation.
+   * Scan `expr` for unhandled exception errors. Compiler errors will be triggered for any unhandled exceptions.
+   *
+   * @param checked The checked exception configuration to be used when scanning `expr`.
+   * @param expr The expression to be scanned.
+   * @tparam T The expression type.
+   * @return The expression result, or a compiler error if the expression contained unchecked exceptions.
+   */
+  def nx[T] (checked: CheckedExceptionConfig) (expr: T): T = macro Macro.nx_macro_cf[T]
+
+  /**
+   * Validate `expr` and return the validation results.
    *
    * Example usage:
    * {{{
@@ -63,6 +72,26 @@ object NX {
    * @return The validation result.
    */
   private[nx] def check[T] (expr: T): ValidationResult = macro Macro.nx_macro_check[T]
+
+  /**
+   * Validate `expr` and return the validation results.
+   *
+   * Example usage:
+   * {{{
+   *   val result: ValidationResult = NX.check {
+   *      java.inet.InetAddress.getByName("some host")
+   *   }
+   * }}}
+   *
+   * Since java.inet.InetAddress.getByName() declares that it throws an UnknownHostException, the result
+   * of NX.check will be a ValidationResult(errors, Set(classOf[UnknownHostException])).
+   *
+   * @param checked The checked exception configuration to be used when scanning `expr`.
+   * @param expr The expression to be scanned.
+   * @tparam T The expression type.
+   * @return The validation result.
+   */
+  private[nx] def check[T] (checked: CheckedExceptionConfig) (expr: T): ValidationResult = macro Macro.nx_macro_check_cf[T]
 
   /**
    * Validate `expr` and return the set of unhandled exception types.
@@ -86,13 +115,15 @@ object NX {
  * - As a compiler plugin (see [[internal.CompilerPlugin]])
  * - As a compile-time macro (see [[internal.Macro]])
  */
-private trait NX extends Core with Errors {
+private trait NX extends Core with Errors with CheckedExceptionStrategies {
   import universe._
 
   /**
    * Finds all unhandled throwables at a given tree node.
+   *
+   * @param checkedStrategy The checked exception strategy to be used when validating exceptions.
    */
-  class ThrowableValidator {
+  class ThrowableValidator (checkedStrategy: CheckedExceptionStrategy) {
     /**
      * Traverse `tree` and return all validation errors. Note that this will contain '''all''' unhandled `Throwable`
      * types, not just subclasses of `Exception`.
@@ -112,7 +143,7 @@ private trait NX extends Core with Errors {
      */
     def check (tree: Tree): Seq[ValidationError] = {
       /* Instantiate our traverse handler */
-      val traverse = new ThrowableTraversal()
+      val traverse = new ThrowableTraversal(checkedStrategy)
 
       /* Perform the traversal */
       traverse.validationErrors(tree)
@@ -121,8 +152,10 @@ private trait NX extends Core with Errors {
 
   /**
    * Handles the actual (mutable) traversal of the tree.
+   *
+   * @param checkedStrategy The checked exception strategy to be used when validating exceptions.
    */
-  private class ThrowableTraversal extends Traverser {
+  private class ThrowableTraversal (checkedStrategy: CheckedExceptionStrategy) extends Traverser {
     import scala.collection.mutable
 
     /**
@@ -187,12 +220,14 @@ private trait NX extends Core with Errors {
       }
 
       /**
-       * Declare one or more candidate throwables at the given point in the tree.
+       * Declare one or more candidate throwables at the given point in the tree. The provided throwies will
+       * be validated against the active checked exception strategy; any non-checked throwable types will be
+       * discarded.
        *
        * @param throwies The throwies that may be thrown at this point.
        */
       def declareCandidateThrowies (throwies: Seq[Throwie]): Unit = {
-        candidateThrowies = candidateThrowies ++: throwies
+        candidateThrowies = candidateThrowies ++: throwies.filterNot(t => checkedStrategy.isUnchecked(t.tpe))
       }
 
       /**

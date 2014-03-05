@@ -62,7 +62,7 @@ class CompilerPlugin (val global: Global) extends Plugin {
     class ValidationPhase (prev: Phase) extends StdPhase(prev) {
       override def apply (unit: CompilationUnit) = {
         /* Perform the validation */
-        val validator = new ThrowableValidator()
+        val validator = new ThrowableValidator(Component.this.StandardCheckedExceptionStrategy)
         validator.check(unit.body).foreach { err =>
           unit.error(err.pos, err.message)
         }

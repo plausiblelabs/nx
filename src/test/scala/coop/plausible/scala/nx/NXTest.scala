@@ -311,4 +311,33 @@ class NXTest extends Specification {
       }
     }.unhandled.mustEqual(Set(classOf[IOException]))
   }
+
+  "Unchecked exception handling" should {
+    s"filter RuntimeException and Error subclasses when defaulted to ${CheckedExceptionConfig.Standard}" in NX.check {
+      def throw1 (flag: Boolean) = if (flag) throw new IOException()
+      def throw2 (flag: Boolean) = if (flag) throw new RuntimeException()
+      def throw3 (flag: Boolean) = if (flag) throw new Error()
+    }.unhandled.mustEqual(Set(classOf[IOException]))
+
+    s"filter RuntimeException and Error subclasses when ${CheckedExceptionConfig.Standard} is enabled" in NX.check(CheckedExceptionConfig.Standard) {
+      def throw1 (flag: Boolean) = if (flag) throw new IOException()
+      def throw2 (flag: Boolean) = if (flag) throw new RuntimeException()
+      def throw3 (flag: Boolean) = if (flag) throw new Error()
+    }.unhandled.mustEqual(Set(classOf[IOException]))
+
+    s"filter Error subclasses when ${CheckedExceptionConfig.Strict} is enabled" in NX.check(CheckedExceptionConfig.Strict) {
+      def throw1 (flag: Boolean) = if (flag) throw new IOException()
+      def throw2 (flag: Boolean) = if (flag) throw new RuntimeException()
+      def throw3 (flag: Boolean) = if (flag) throw new Error()
+    }.unhandled.mustEqual(Set(classOf[IOException], classOf[RuntimeException]))
+
+    s"filter only fatal exceptions when ${CheckedExceptionConfig.NonFatal} is enabled" in NX.check(CheckedExceptionConfig.NonFatal) {
+      def throw1 (flag: Boolean) = if (flag) throw new IOException()
+      def throw2 (flag: Boolean) = if (flag) throw new RuntimeException()
+      def throw3 (flag: Boolean) = if (flag) throw new Error()
+      def throw4 (flag: Boolean) = if (flag) throw new OutOfMemoryError()
+      def throw5 (flag: Boolean) = if (flag) throw new LinkageError()
+      def throw6 (flag: Boolean) = if (flag) throw new AssertionError()
+    }.unhandled.mustEqual(Set(classOf[IOException], classOf[RuntimeException], classOf[Error]))
+  }
 }

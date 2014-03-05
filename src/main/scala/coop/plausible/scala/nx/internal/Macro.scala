@@ -24,7 +24,10 @@
 package coop.plausible.scala.nx.internal
 
 import coop.plausible.scala.nx.ValidationResult.{ValidationError, UnhandledThrowable, InvalidThrowsAnnotation, CannotOverride}
-import coop.plausible.scala.nx.{NX, ValidationResult}
+import coop.plausible.scala.nx._
+import coop.plausible.scala.nx.ValidationResult.InvalidThrowsAnnotation
+import coop.plausible.scala.nx.ValidationResult.UnhandledThrowable
+import coop.plausible.scala.nx.ValidationResult.CannotOverride
 
 /**
  * No Exceptions macro implementation.
@@ -44,9 +47,7 @@ object Macro extends MacroTypes {
    */
   def nx_macro_unhandled[T] (c: Context)(expr: c.Expr[T]): c.Expr[Set[Class[_ <: Throwable]]] = {
     /* <= 2.10 compatibility shims */
-    val compat = new MacroCompat with MacroTypes {
-      override val context: c.type = c
-    }
+    val compat = new MacroCompat with MacroTypes { override val context: c.type = c }
     import compat.TermName
     import c.universe.{TermName => _, _}
 
@@ -60,11 +61,12 @@ object Macro extends MacroTypes {
    * it simply returns the result of the validation.
    *
    * @param c Compiler context.
+   * @param checked Checked exception configuration, or null to use the standard config.
    * @param expr Expression to be scanned.
    * @tparam T Expression type.
    * @return An expression that will vend the validation results.
    */
-  def nx_macro_check[T] (c: Context)(expr: c.Expr[T]): c.Expr[ValidationResult] = {
+  def nx_macro_check_cf[T] (c: Context)(checked:c.Expr[CheckedExceptionConfig])(expr: c.Expr[T]): c.Expr[ValidationResult] = {
     /* <= 2.10 compatibility shims */
     val compat = new MacroCompat with MacroTypes {
       override val context: c.type = c
@@ -78,7 +80,7 @@ object Macro extends MacroTypes {
     }
 
     /* Perform the validation */
-    val validator = new nx.ThrowableValidator()
+    val validator = new nx.ThrowableValidator(determineCheckStrategy(c, nx)(checked))
     val errors = validator.check(expr.tree)
 
     /* Extract the set of unhandled throwables */
@@ -128,6 +130,47 @@ object Macro extends MacroTypes {
   }
 
   /**
+   * Private implementation of the nx macro; rather than triggering compilation errors,
+   * it simply returns the result of the validation.
+   *
+   * @param c Compiler context.
+   * @param expr Expression to be scanned.
+   * @tparam T Expression type.
+   * @return An expression that will vend the validation results.
+   */
+  def nx_macro_check[T] (c: Context)(expr: c.Expr[T]): c.Expr[ValidationResult] = {
+    import c.universe._
+    /* Generate call to CheckedExceptionConfig.Default.apply() */
+    val resultExpr = nx_macro_check_cf(c)(null)(expr).in(rootMirror)
+    c.Expr(resultExpr.tree)
+  }
+
+  /**
+   * Implementation of the nx(checked) macro. Refer to [[NX.nx]] for the public API.
+   *
+   * @param c Compiler context.
+   * @param checked Checked exception configuration, or null to use the standard config.
+   * @param expr Expression to be scanned.
+   * @tparam T Expression type.
+   * @return The original expression, or a compiler error.
+   */
+  def nx_macro_cf[T] (c: Context)(checked:c.Expr[CheckedExceptionConfig])(expr: c.Expr[T]): c.Expr[T] = {
+    /* Instantiate a macro global-based instance of the plugin core */
+    val nx = new NX {
+      override val universe: c.universe.type = c.universe
+    }
+
+    /* Perform the validation */
+    val validator = new nx.ThrowableValidator(determineCheckStrategy(c, nx)(checked))
+    validator.check(expr.tree).foreach { err =>
+      c.error(err.pos, err.message)
+    }
+
+    /* Return the original, unmodified expression */
+    expr
+  }
+
+  /**
    * Implementation of the nx macro. Refer to [[NX.nx]] for the public API.
    *
    * @param c Compiler context.
@@ -136,18 +179,33 @@ object Macro extends MacroTypes {
    * @return The original expression, or a compiler error.
    */
   def nx_macro[T] (c: Context)(expr: c.Expr[T]): c.Expr[T] = {
-    /* Instantiate a macro global-based instance of the plugin core */
-    val core = new NX {
-      override val universe: c.universe.type = c.universe
-    }
+    import c.universe._
+    val resultExpr = nx_macro_cf(c)(null)(expr).in(rootMirror)
+    c.Expr(resultExpr.tree)
+  }
 
-    /* Perform the validation */
-    val validator = new core.ThrowableValidator()
-    validator.check(expr.tree).foreach { err =>
-      c.error(err.pos, err.message)
-    }
+  /**
+   * Determine the appropriate CheckedExceptionStrategy value from the given expression. If the expression does not
+   * contain a literal constant, a context error will be reported and StandardCheckedExceptionStrategy will be returned.
+   *
+   * @param c The compiler context.
+   * @param expr The expression returning a `CheckedExceptionConfig` type, or null to use the standard config.
+   * @return True or false.
+   */
+  private def determineCheckStrategy (c: Context, nx:NX) (expr: c.Expr[CheckedExceptionConfig]): nx.CheckedExceptionStrategy = {
+    import c.universe._
 
-    /* Return the original, unmodified expression */
-    expr
+    if (expr == null) {
+      nx.StandardCheckedExceptionStrategy
+    } else if (expr.tree.tpe <:< typeOf[CheckedExceptionConfig.Standard.type]) {
+      nx.StandardCheckedExceptionStrategy
+    } else if (expr.tree.tpe <:< typeOf[CheckedExceptionConfig.Strict.type]) {
+      nx.StrictCheckedExceptionStrategy
+    } else if (expr.tree.tpe <:< typeOf[CheckedExceptionConfig.NonFatal.type]) {
+      nx.NonFatalCheckedExceptionStrategy
+    } else {
+      c.error(expr.tree.pos, "Unknown checked exception configuration")
+      nx.StandardCheckedExceptionStrategy
+    }
   }
 }
