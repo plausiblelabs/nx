@@ -143,11 +143,9 @@ object Macro extends MacroTypes {
 
     /* Perform the validation */
     val validator = new core.ThrowableValidator()
-    val unhandled = validator.check(expr.tree)
-
-    /* Report any unhandled throwables */
-    if (unhandled.size > 0)
-      println(s"Unhandled: $unhandled")
+    validator.check(expr.tree).foreach { err =>
+      c.error(err.pos, err.message)
+    }
 
     /* Return the original, unmodified expression */
     expr
