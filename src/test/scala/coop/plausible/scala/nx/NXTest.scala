@@ -251,7 +251,7 @@ class NXTest extends Specification {
   * Test escape analysis; verify that we've plugged any type gaps that would allow throwable annotations to be lost.
   */
   "NX escape analysis" should {
-    "flag compile-time indeterminate case statements (eg, Fatal(_)) asusableeable" in NX.unhandled {
+    "flag compile-time indeterminate case statements (eg, Fatal(_)) as unusable" in NX.unhandled {
       /*
        * Applicative matches provide an escape hatch; it's impossible to know how they
        * will match at runtime. Fortunately, if you're using checked exceptions, blanket
