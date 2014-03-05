@@ -434,6 +434,9 @@ private trait NX extends Core with Errors with CheckedExceptionStrategies {
       }
     }
 
+    /** The class symbol for the 'scala.throws' annotation */
+    private lazy val ThrowsClass = rootMirror.staticClass("scala.throws")
+
     /**
      * Given a sequence of annotations, extract the exception type from any @throws annotations.
      *
@@ -443,7 +446,7 @@ private trait NX extends Core with Errors with CheckedExceptionStrategies {
      */
     private def extractAnnotatedThrows (owner: Tree, annotations: Seq[Annotation]): Either[ValidationError, Seq[Type]] = {
       /* Filter non-@throws annotations */
-      val throwsAnnotations = annotations.filterNot(_.tpe =:= typeOf[throws[_]])
+      val throwsAnnotations = annotations.filter(_.tpe.typeSymbol == ThrowsClass)
 
       /* Perform the actual extraction (recursively) */
       @tailrec def extractor (head: Annotation, tail: Seq[Annotation], accum: Seq[Type]): Either[ValidationError, Seq[Type]] = {
@@ -453,10 +456,10 @@ private trait NX extends Core with Errors with CheckedExceptionStrategies {
           case Annotation(_, List(Literal(Constant(tpe: Type))), _) => Right(tpe)
             
           /* Scala 2.10 API: @throws[Exception], @throws[Exception]("cause") */
-          case Annotation(TypeRef(_, _, args), _, _) => Right(args.head)
-            
+          case Annotation(TypeRef(_, _, args), _, _) if args.size > 0 => Right(args.head)
+
           /* Unsupported annotation arguments. */
-          case _ => Left(InvalidThrowsAnnotation(owner.pos, s"Unsupported @throws annotation parameters on annotation `$head`"))
+          case _ => Left(InvalidThrowsAnnotation(owner.pos, s"Unsupported @throws annotation '$head' on `$owner`"))
         }
         
         /* On success, recursively parse the next annotation. On failure, return immediately */

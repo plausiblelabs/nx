@@ -136,6 +136,11 @@ class NXTest extends Specification {
       /* Defined to throw an UnknownHostException */
       java.net.InetAddress.getByName("")
     }.mustEqual(Set(classOf[UnknownHostException]))
+
+    "ignore non-throws annotations" in NX.unhandled {
+      @inline @throws[IOException] def thrower (): Unit = ()
+      thrower()
+    }.mustEqual(Set(classOf[IOException]))
   }
 
   /*
