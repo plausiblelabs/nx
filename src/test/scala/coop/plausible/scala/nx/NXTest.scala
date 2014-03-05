@@ -234,6 +234,17 @@ class NXTest extends Specification {
         @throws[IOException]() override def doSomething (): Unit = throw new IOException()
       }
     }.errors.mustEqual(Seq())
+
+    /* Even if unchecked, @throws changes the method signature; implementors should be warned of the widening
+     * of the signature caused by declaring a runtime @throws */
+    "flag contravariant widening of unchecked exception types on overridden methods" in NX.check {
+      trait A {
+       def doSomething (): Unit = {}
+      }
+      class B extends A {
+        @throws[RuntimeException]() override def doSomething (): Unit = throw new RuntimeException()
+      }
+    }.errors.mustEqual(Seq(CannotOverride("doSomething", classOf[RuntimeException])))
   }
 
   /*
