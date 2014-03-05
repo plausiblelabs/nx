@@ -63,7 +63,9 @@ class CompilerPlugin (val global: Global) extends Plugin {
       override def apply (unit: CompilationUnit) = {
         /* Perform the validation */
         val validator = new ThrowableValidator()
-        validator.check(unit.body)
+        validator.check(unit.body).foreach { err =>
+          unit.error(err.pos, err.message)
+        }
       }
     }
   }
