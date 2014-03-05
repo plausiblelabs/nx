@@ -45,7 +45,7 @@ object CheckedExceptionConfig {
    * - AssertionError
    * - LinkageError
    */
-  case object NonFatal extends CheckedExceptionConfig
+  case object Fatal extends CheckedExceptionConfig
 }
 
 /**

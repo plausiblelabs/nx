@@ -313,7 +313,7 @@ private trait NX extends Core with Errors with CheckedExceptionStrategies {
            * that rely on runtime pattern matching:
            *
            * - Case statements that define a guard.
-           * - Unapply-based statements (eg, NonFatal(e))
+           * - Unapply-based statements (eg, Fatal(e))
            *
            * Since the matching is dynamic in those cases, we have no way to assert that the guard will match all
            * possible values at runtime.

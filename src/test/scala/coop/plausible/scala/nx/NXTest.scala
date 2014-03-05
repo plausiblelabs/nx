@@ -251,7 +251,7 @@ class NXTest extends Specification {
   * Test escape analysis; verify that we've plugged any type gaps that would allow throwable annotations to be lost.
   */
   "NX escape analysis" should {
-    "flag compile-time indeterminate case statements (eg, NonFatal(_)) asusableeable" in NX.unhandled {
+    "flag compile-time indeterminate case statements (eg, Fatal(_)) asusableeable" in NX.unhandled {
       /*
        * Applicative matches provide an escape hatch; it's impossible to know how they
        * will match at runtime. Fortunately, if you're using checked exceptions, blanket
@@ -331,7 +331,7 @@ class NXTest extends Specification {
       def throw3 (flag: Boolean) = if (flag) throw new Error()
     }.unhandled.mustEqual(Set(classOf[IOException], classOf[RuntimeException]))
 
-    s"filter only fatal exceptions when ${CheckedExceptionConfig.NonFatal} is enabled" in NX.check(CheckedExceptionConfig.NonFatal) {
+    s"filter only fatal exceptions when ${CheckedExceptionConfig.Fatal} is enabled" in NX.check(CheckedExceptionConfig.Fatal) {
       def throw1 (flag: Boolean) = if (flag) throw new IOException()
       def throw2 (flag: Boolean) = if (flag) throw new RuntimeException()
       def throw3 (flag: Boolean) = if (flag) throw new Error()
