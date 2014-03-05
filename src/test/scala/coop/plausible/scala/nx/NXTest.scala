@@ -141,6 +141,18 @@ class NXTest extends Specification {
       @inline @throws[IOException] def thrower (): Unit = ()
       thrower()
     }.mustEqual(Set(classOf[IOException]))
+
+    "find throwables within val definitions" in NX.unhandled {
+      def thrower (flag: Boolean): Unit = {
+        val b = { if (flag) throw new IOException() }
+      }
+    }.mustEqual(Set(classOf[IOException]))
+
+    "find throwables within var definitions" in NX.unhandled {
+      def thrower (flag: Boolean): Unit = {
+        var b = { if (flag) throw new IOException() }
+      }
+    }.mustEqual(Set(classOf[IOException]))
   }
 
   /*
@@ -175,6 +187,42 @@ class NXTest extends Specification {
         }
       }
     }.mustEqual(Set())
+
+    "treat val initializers as non-propagation points" in NX.check {
+      class A @throws[IOException]() (flag: Boolean) {
+        val b = { if (flag) throw new IOException() }
+      }
+    }.errors.mustEqual(Seq())
+
+    "treat var initializers as non-propagation points" in NX.check {
+      class A @throws[IOException]() (flag: Boolean) {
+        var b = { if (flag) throw new IOException() }
+      }
+    }.errors.mustEqual(Seq())
+
+    "treat def accessors as a propagation point" in NX.check {
+      trait A {
+        val b: Int
+      }
+      class B @throws[IOException]() (flag: Boolean) extends A {
+        override def b = {
+          if (flag) throw new IOException()
+          42
+        }
+      }
+    }.errors.mustEqual(Seq(UnhandledThrowable(classOf[IOException])))
+
+    "transitively apply throwables from immutable value accessors to their enclosing scope" in NX.check {
+      class A (flag: Boolean) {
+        val b = { if (flag) throw new IOException() }
+      }
+    }.errors.mustEqual(Seq(UnhandledThrowable(classOf[IOException])))
+
+    "flag lazy value accessors as propagation points" in NX.check {
+      class A @throws[IOException]() (flag: Boolean) {
+        lazy val b = { if (flag) throw new IOException() }
+      }
+    }.errors.mustEqual(Seq(UnhandledThrowable(classOf[IOException])))
   }
 
   /*

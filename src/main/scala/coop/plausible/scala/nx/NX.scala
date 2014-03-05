@@ -392,10 +392,27 @@ private trait NX extends Core with Errors with CheckedExceptionStrategies {
             }.right
           ) yield result
 
+          /* Return 'true' if this def is a propagation point. Stable/immutable accessors are treated as non-propagation
+           * points. This excludes *lazy* val declarations, which could trigger a throw on first access. */
+          def isPropagationPoint: Boolean = {
+            val term = defdef.symbol.asTerm
+
+            if (term.isLazy) {
+              /* All lazy values are propagation points, as their evaluation occurs at some indeterminate future time. */
+              true
+            } else if (term.isAccessor) {
+              /* val/var definitions aren't propagation points; any exceptions that may be thrown are thrown
+               * within the enclosing definition at initialization time */
+              false
+            } else {
+              /* All other defs are considered to be propagation points. */
+              true
+            }
+          }
 
           /* Declare the propagation point, or any errors. */
           throws match {
-            case Right(types) => mutableState.declarePropagationPoint(types.toSet)
+            case Right(types) => if (isPropagationPoint) mutableState.declarePropagationPoint(types.toSet)
             case Left(errs) => for (err <- errs) mutableState.declareValidationError(err)
           }
 
