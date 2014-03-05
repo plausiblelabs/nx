@@ -47,7 +47,7 @@ private[nx] trait Errors { self:Core =>
    * @param throwableType The throwable's type.
    */
   case class UnhandledThrowable (pos: Position, throwableType: Type) extends ValidationError {
-    override val message:String  = s"unreported exception ${throwableType.typeSymbol.name}; must be caught or declared to be thrown. " +
+    override val message:String  = s"Unhandled exception type ${throwableType.typeSymbol.fullName}; must be caught or declared to be thrown. " +
       "Consider the use of monadic error handling, such as scala.util.Either."
   }
 
