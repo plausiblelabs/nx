@@ -297,5 +297,18 @@ class NXTest extends Specification {
         @throws[IOException]() override def doSomething (): Unit = throw new IOException()
       }
     }.errors.mustEqual(Seq())
+
+    "flag assignment-based @throws annotation erasure" in NX.check {
+      @throws[IOException]() def thrower (flag: Boolean): Unit = if (flag) throw new IOException()
+      val nonthrower: (Boolean => Unit) = thrower
+    }.unhandled.mustEqual(Set(classOf[IOException]))
+
+    "flag return-based @throws annotation erasure" in NX.check {
+      @throws[IOException]() def thrower (flag: Boolean): Unit = if (flag) throw new IOException()
+      type NonThrower = (Boolean => Unit)
+      def foo (): NonThrower = {
+        thrower
+      }
+    }.unhandled.mustEqual(Set(classOf[IOException]))
   }
 }
