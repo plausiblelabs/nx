@@ -81,7 +81,7 @@ private[nx] trait CheckedExceptionStrategies { self:Core =>
    * - AssertionError
    * - LinkageError
    */
-  object NonFatalCheckedExceptionStrategy extends CheckedExceptionStrategy {
+  object FatalCheckedExceptionStrategy extends CheckedExceptionStrategy {
     override def isUnchecked (tpe: Type): Boolean = {
       if (tpe <:< typeOf[VirtualMachineError]) {
         true

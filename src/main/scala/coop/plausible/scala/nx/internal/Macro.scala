@@ -202,7 +202,7 @@ object Macro extends MacroTypes {
     } else if (expr.tree.tpe <:< typeOf[CheckedExceptionConfig.Strict.type]) {
       nx.StrictCheckedExceptionStrategy
     } else if (expr.tree.tpe <:< typeOf[CheckedExceptionConfig.Fatal.type]) {
-      nx.NonFatalCheckedExceptionStrategy
+      nx.FatalCheckedExceptionStrategy
     } else {
       c.error(expr.tree.pos, "Unknown checked exception configuration")
       nx.StandardCheckedExceptionStrategy
