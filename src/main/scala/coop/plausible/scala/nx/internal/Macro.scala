@@ -33,29 +33,6 @@ import coop.plausible.scala.nx.ValidationResult.CannotOverride
  * No Exceptions macro implementation.
  */
 object Macro extends MacroTypes {
-
-  /**
-   * Private implementation of the nx macro; rather than triggering compilation errors,
-   * it simply returns the set of unhandled exceptions.
-   *
-   * No other validation errors are returned.
-   *
-   * @param c Compiler context.
-   * @param expr Expression to be scanned.
-   * @tparam T Expression type.
-   * @return An expression that will vend the validation results.
-   */
-  def nx_macro_unhandled[T] (c: Context)(expr: c.Expr[T]): c.Expr[Set[Class[_ <: Throwable]]] = {
-    /* <= 2.10 compatibility shims */
-    val compat = new MacroCompat with MacroTypes { override val context: c.type = c }
-    import compat.TermName
-    import c.universe.{TermName => _, _}
-
-    /* Return just the unhandled values (ValidationResult.unhandled) */
-    val resultExpr = nx_macro_check(c)(expr).in(c.universe.rootMirror)
-    c.Expr(Select(resultExpr.tree, TermName("unhandled")))
-  }
-
   /**
    * Private implementation of the nx macro; rather than triggering compilation errors,
    * it simply returns the result of the validation.
@@ -66,7 +43,7 @@ object Macro extends MacroTypes {
    * @tparam T Expression type.
    * @return An expression that will vend the validation results.
    */
-  def nx_macro_check_cf[T] (c: Context)(checked:c.Expr[CheckedExceptionConfig])(expr: c.Expr[T]): c.Expr[ValidationResult] = {
+  def nx_check_config[T] (c: Context)(checked:c.Expr[CheckedExceptionConfig])(expr: c.Expr[T]): c.Expr[ValidationResult] = {
     /* <= 2.10 compatibility shims */
     val compat = new MacroCompat with MacroTypes {
       override val context: c.type = c
@@ -138,10 +115,10 @@ object Macro extends MacroTypes {
    * @tparam T Expression type.
    * @return An expression that will vend the validation results.
    */
-  def nx_macro_check[T] (c: Context)(expr: c.Expr[T]): c.Expr[ValidationResult] = {
+  def nx_check[T] (c: Context)(expr: c.Expr[T]): c.Expr[ValidationResult] = {
     import c.universe._
     /* Generate call to CheckedExceptionConfig.Default.apply() */
-    val resultExpr = nx_macro_check_cf(c)(null)(expr).in(rootMirror)
+    val resultExpr = nx_check_config(c)(null)(expr).in(rootMirror)
     c.Expr(resultExpr.tree)
   }
 
@@ -154,7 +131,7 @@ object Macro extends MacroTypes {
    * @tparam T Expression type.
    * @return The original expression, or a compiler error.
    */
-  def nx_macro_cf[T] (c: Context)(checked:c.Expr[CheckedExceptionConfig])(expr: c.Expr[T]): c.Expr[T] = {
+  def nx_config[T] (c: Context)(checked:c.Expr[CheckedExceptionConfig])(expr: c.Expr[T]): c.Expr[T] = {
     /* Instantiate a macro global-based instance of the plugin core */
     val nx = new NX {
       override val universe: c.universe.type = c.universe
@@ -178,9 +155,9 @@ object Macro extends MacroTypes {
    * @tparam T Expression type.
    * @return The original expression, or a compiler error.
    */
-  def nx_macro[T] (c: Context)(expr: c.Expr[T]): c.Expr[T] = {
+  def nx[T] (c: Context)(expr: c.Expr[T]): c.Expr[T] = {
     import c.universe._
-    val resultExpr = nx_macro_cf(c)(null)(expr).in(rootMirror)
+    val resultExpr = nx_config(c)(null)(expr).in(rootMirror)
     c.Expr(resultExpr.tree)
   }
 

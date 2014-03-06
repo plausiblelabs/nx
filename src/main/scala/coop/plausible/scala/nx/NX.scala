@@ -42,7 +42,7 @@ object NX {
    * @tparam T The expression type.
    * @return The expression result, or a compiler error if the expression contained unchecked exceptions.
    */
-  def nx[T] (expr: T): T = macro Macro.nx_macro[T]
+  def nx[T] (expr: T): T = macro Macro.nx[T]
 
   /**
    * Scan `expr` for unhandled exception errors. Compiler errors will be triggered for any unhandled exceptions.
@@ -52,7 +52,7 @@ object NX {
    * @tparam T The expression type.
    * @return The expression result, or a compiler error if the expression contained unchecked exceptions.
    */
-  def nx[T] (checked: CheckedExceptionConfig) (expr: T): T = macro Macro.nx_macro_cf[T]
+  def nx[T] (checked: CheckedExceptionConfig) (expr: T): T = macro Macro.nx_config[T]
 
   /**
    * Validate `expr` and return the validation results.
@@ -71,7 +71,7 @@ object NX {
    * @tparam T The expression type.
    * @return The validation result.
    */
-  private[nx] def check[T] (expr: T): ValidationResult = macro Macro.nx_macro_check[T]
+  private[nx] def check[T] (expr: T): ValidationResult = macro Macro.nx_check[T]
 
   /**
    * Validate `expr` and return the validation results.
@@ -91,21 +91,7 @@ object NX {
    * @tparam T The expression type.
    * @return The validation result.
    */
-  private[nx] def check[T] (checked: CheckedExceptionConfig) (expr: T): ValidationResult = macro Macro.nx_macro_check_cf[T]
-
-  /**
-   * Validate `expr` and return the set of unhandled exception types.
-   *
-   * This is equivelant to:
-   * {{{
-   *   NX.check {expr}.unhandled
-   * }}}
-   *
-   * @param expr The expression to be scanned.
-   * @tparam T The expression type.
-   * @return The set of unhandled exceptions found in `expr`
-   */
-  private[nx] def unhandled[T] (expr: T): Set[Class[_ <: Throwable]] = macro Macro.nx_macro_unhandled[T]
+  private[nx] def check[T] (checked: CheckedExceptionConfig) (expr: T): ValidationResult = macro Macro.nx_check_config[T]
 }
 
 /**
