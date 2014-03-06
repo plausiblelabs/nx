@@ -23,6 +23,8 @@
 
 package coop.plausible
 
+import coop.plausible.nx.internal.ValidationResult
+
 /**
  * Compile time exception validation
  */

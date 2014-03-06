@@ -21,9 +21,8 @@
  * THE SOFTWARE.
  */
 
-package coop.plausible.nx
+package coop.plausible.nx.internal
 
-import coop.plausible.nx.ValidationResult.ValidationError
 
 /**
  * NX validation results.
@@ -73,4 +72,4 @@ private[nx] object ValidationResult {
  * @param errors All errors encountered, in the order they were encountered.
  * @param unhandled The full set of unhandled throwable classes.
  */
-private[nx] case class ValidationResult (errors: Seq[ValidationError], unhandled: Set[Class[_ <: Throwable]])
+private[nx] case class ValidationResult (errors: Seq[ValidationResult.ValidationError], unhandled: Set[Class[_ <: Throwable]])

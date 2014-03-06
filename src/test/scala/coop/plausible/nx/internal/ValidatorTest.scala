@@ -27,7 +27,7 @@ import org.specs2.mutable.Specification
 import java.io.IOException
 import java.net.{SocketException, InetAddress, UnknownHostException}
 import scala.util.control.NonFatal
-import coop.plausible.nx.ValidationResult.{UnhandledThrowable, CannotOverride}
+import ValidationResult.{UnhandledThrowable, CannotOverride}
 
 import coop.plausible.nx
 import coop.plausible.nx.{UncheckedExceptions, CheckedExceptionConfig}

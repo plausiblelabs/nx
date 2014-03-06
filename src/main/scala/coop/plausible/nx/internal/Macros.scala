@@ -23,11 +23,11 @@
 
 package coop.plausible.nx.internal
 
-import coop.plausible.nx.ValidationResult.{ValidationError, UnhandledThrowable, InvalidThrowsAnnotation, CannotOverride}
+import ValidationResult.{ValidationError, UnhandledThrowable, InvalidThrowsAnnotation, CannotOverride}
 import coop.plausible.nx._
-import coop.plausible.nx.ValidationResult.InvalidThrowsAnnotation
-import coop.plausible.nx.ValidationResult.UnhandledThrowable
-import coop.plausible.nx.ValidationResult.CannotOverride
+import ValidationResult.InvalidThrowsAnnotation
+import ValidationResult.UnhandledThrowable
+import ValidationResult.CannotOverride
 
 /**
  * No Exceptions macro implementation.
