@@ -34,7 +34,7 @@ import coop.plausible.nx.ValidationResult.CannotOverride
  */
 object Macro extends MacroTypes {
   /**
-   * Private implementation of the nx macro; rather than triggering compilation errors,
+   * Private implementation of the nx.verify macro; rather than triggering compilation errors,
    * it simply returns the result of the validation.
    *
    * @param c Compiler context.
@@ -43,7 +43,7 @@ object Macro extends MacroTypes {
    * @tparam T Expression type.
    * @return An expression that will vend the validation results.
    */
-  def nx_check_config[T] (c: Context)(checked:c.Expr[CheckedExceptionConfig])(expr: c.Expr[T]): c.Expr[ValidationResult] = {
+  def nx_verify_config[T] (c: Context)(checked:c.Expr[CheckedExceptionConfig])(expr: c.Expr[T]): c.Expr[ValidationResult] = {
     /* <= 2.10 compatibility shims */
     val compat = new MacroCompat with MacroTypes { override val context: c.type = c }
     import compat.{TypeName, TermName}
@@ -100,7 +100,7 @@ object Macro extends MacroTypes {
   }
 
   /**
-   * Private implementation of the nx macro; rather than triggering compilation errors,
+   * Private implementation of the nx.verify macro; rather than triggering compilation errors,
    * it simply returns the result of the validation.
    *
    * @param c Compiler context.
@@ -108,15 +108,15 @@ object Macro extends MacroTypes {
    * @tparam T Expression type.
    * @return An expression that will vend the validation results.
    */
-  def nx_check[T] (c: Context)(expr: c.Expr[T]): c.Expr[ValidationResult] = {
+  def nx_verify[T] (c: Context)(expr: c.Expr[T]): c.Expr[ValidationResult] = {
     import c.universe._
     /* Generate call to CheckedExceptionConfig.Default.apply() */
-    val resultExpr = nx_check_config(c)(null)(expr).in(rootMirror)
+    val resultExpr = nx_verify_config(c)(null)(expr).in(rootMirror)
     c.Expr(resultExpr.tree)
   }
 
   /**
-   * Implementation of the nx(checked) macro. Refer to `NX.nx` for the public API
+   * Internal implementation of the nx.exceptionChecked macro. Refer to `nx.exceptionChecked` for the public API
    *
    * @param c Compiler context.
    * @param checked Checked exception configuration, or null to use the standard config.
@@ -124,7 +124,7 @@ object Macro extends MacroTypes {
    * @tparam T Expression type.
    * @return The original expression, or a compiler error.
    */
-  def nx_config[T] (c: Context)(checked:c.Expr[CheckedExceptionConfig])(expr: c.Expr[T]): c.Expr[T] = {
+  def excpetion_checked_config[T] (c: Context)(checked:c.Expr[CheckedExceptionConfig])(expr: c.Expr[T]): c.Expr[T] = {
     /* Instantiate a macro global-based instance of the plugin core */
     val nx = new NX {
       override val universe: c.universe.type = c.universe
@@ -141,21 +141,21 @@ object Macro extends MacroTypes {
   }
 
   /**
-   * Implementation of the nx macro. Refer to `NX.nx` for the public API
+   * Internal implementation of the nx.exceptionChecked macro. Refer to `nx.exceptionChecked` for the public API
    *
    * @param c Compiler context.
    * @param expr Expression to be scanned.
    * @tparam T Expression type.
    * @return The original expression, or a compiler error.
    */
-  def nx[T] (c: Context)(expr: c.Expr[T]): c.Expr[T] = {
+  def exception_checked[T] (c: Context)(expr: c.Expr[T]): c.Expr[T] = {
     import c.universe._
-    val resultExpr = nx_config(c)(null)(expr).in(rootMirror)
+    val resultExpr = excpetion_checked_config(c)(null)(expr).in(rootMirror)
     c.Expr(resultExpr.tree)
   }
 
   /**
-   * Implementation of the 'assertNonThrow' macro. Refer to [[NX.assertNonThrow]] for the
+   * Internal implementation of the 'assertNoThrows' macro. Refer to `nx.assertNonThrow` for the
    * public API.
    *
    * @param c Compiler context.

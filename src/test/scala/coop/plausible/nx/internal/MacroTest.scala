@@ -24,7 +24,7 @@
 package coop.plausible.nx.internal
 
 import org.specs2.mutable.Specification
-import coop.plausible.nx.NX
+import coop.plausible.nx
 
 /**
  * Test macro-based execution.
@@ -36,7 +36,7 @@ class MacroTest extends Specification {
     /* Once we support actual error reporting, we should smoke
      * test that too. */
     "evaluate an expression at compile-time" in {
-      NX.nx {
+      nx.exceptionChecked {
         def foo (value: Int): Int = value + 5
         foo(5)
       } must beEqualTo(10)
