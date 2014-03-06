@@ -32,8 +32,6 @@ import coop.plausible.nx.internal.Macros
  * `scala.util.control.Exception`
  */
 object Try {
-  import scala.language.experimental.macros
-
   /**
    * Execute `expr`, catching all checked exceptions.
    *
