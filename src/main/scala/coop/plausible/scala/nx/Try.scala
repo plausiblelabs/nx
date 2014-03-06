@@ -26,20 +26,26 @@ package coop.plausible.scala.nx
 import coop.plausible.scala.nx.internal.TryMacro
 
 /**
- *  replacement for the standard `scala.util.Try`
+ * Type-safe mapping from exception-throwing expressions to Either types.
  *
- * Note that this API is considered experimental and may change.
+ * This is intended to be a type-safe replacement for the standard `scala.util.Try` and
+ * `scala.util.control.Exception`
  */
 object Try {
   import scala.language.experimental.macros
 
   /**
-   * Execute `expr`, catching all exceptions of type `E` and returning Either[E, T].
+   * Execute `expr`, catching all checked exceptions.
+   *
+   * If type `E` is not wide enough to catch all checked exceptions in `expr`, a compiler type
+   * error will be triggered.
    *
    * @param expr The expression to execute.
    * @tparam E The exception type to catch.
    * @tparam T The expression's result type.
    * @return The expression result or the thrown exception.
+   *
+   * Note that this API is considered experimental; specifically, it may be modified to support inference of `E`.
    */
   def apply[E <: Throwable, T] (expr: T): Either[E, T] = macro TryMacro.Try[E, T]
 }

@@ -43,7 +43,7 @@ class TryTest extends Specification {
       result must beRight(42)
     }
 
-    "catch well-typed exceptions" in {
+    "catch matching exceptions" in {
       def betterTry (flag: Class[_ <: Throwable]): Either[IOException, Int] = Try[IOException, Int] {
         flag match {
           case _ if flag == classOf[EOFException] => throw new EOFException()
@@ -56,6 +56,20 @@ class TryTest extends Specification {
         case _:IOException => ok
         case _ => ko
       }
+    }
+
+    "pass-through non-matching exceptions" in {
+      def result (flag: Boolean): Option[Throwable] = try {
+        Try[IOException, Int] {
+          if (flag) throw new RuntimeException()
+          42
+        }
+        None
+      } catch {
+        case rt:RuntimeException => Some(rt)
+      }
+
+      result(true) must beSome(anInstanceOf[RuntimeException])
     }
   }
 }
