@@ -55,6 +55,8 @@ unmanagedSourceDirectories in Compile <<= (unmanagedSourceDirectories in Compile
   }
 }
 
+autoAPIMappings := true
+
 // Fork when testing; this ensures that we get a useable classpath for our compiler plugin
 fork in Test := true
 

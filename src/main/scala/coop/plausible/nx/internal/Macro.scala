@@ -234,7 +234,10 @@ object Macro extends MacroTypes {
     import c.universe._
 
     if (expr == null) {
-      nx.StandardCheckedExceptionStrategy
+      /* Use the compiler default */
+      CompilerPlugin.parseCheckedExceptionStrategy(nx, CompilerPlugin.macroTimeOptionPrefix, c.compilerSettings).getOrElse {
+        nx.StandardCheckedExceptionStrategy
+      }
     } else if (expr.tree.tpe <:< typeOf[CheckedExceptionConfig.Standard.type]) {
       nx.StandardCheckedExceptionStrategy
     } else if (expr.tree.tpe <:< typeOf[CheckedExceptionConfig.Strict.type]) {

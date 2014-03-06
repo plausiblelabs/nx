@@ -37,8 +37,6 @@ object TryMacro extends MacroTypes {
    * @tparam E Error type.
    * @tparam T Expression type.
    * @return An expression that will evaluate `expr` with a result type of Either[E, T].
-   *
-   * @todo Fetch the checked exception strategy from the compiler configuration.
    */
   def Try[E <: Throwable, T] (c: Context) (expr: c.Expr[T]): c.Expr[Either[E, T]] = {
     /* <= 2.10 compatibility shims */
@@ -51,8 +49,13 @@ object TryMacro extends MacroTypes {
       override val universe: c.universe.type = c.universe
     }
 
+    /* Determine the compiler's checked exception strategy */
+    val checkedExceptionStrategy = CompilerPlugin.parseCheckedExceptionStrategy(nx, CompilerPlugin.macroTimeOptionPrefix, c.compilerSettings).getOrElse {
+      nx.StandardCheckedExceptionStrategy
+    }
+
     /* Fetch the list of unhandled exceptions */
-    val validator = new nx.ThrowableValidator(nx.StandardCheckedExceptionStrategy)
+    val validator = new nx.ThrowableValidator(checkedExceptionStrategy)
     val validationErrors = validator.check(expr.tree)
     val unhandled = Macro.extractUnhandledExceptionTypes(nx)(validationErrors)
 

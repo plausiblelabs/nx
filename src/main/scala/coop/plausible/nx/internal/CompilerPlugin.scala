@@ -28,14 +28,55 @@ import scala.tools.nsc.plugins.{PluginComponent, Plugin}
 import coop.plausible.nx.NX
 
 /**
+ * Compiler plugin APIs.
+ */
+private[internal] object CompilerPlugin {
+  /** Compiler plugin name */
+  val name: String = "nx"
+
+  /** Compiler option prefix when running from within a macro. */
+  val macroTimeOptionPrefix = s"-P:$name:"
+
+  /** Compiler option prefix when parsing options at compile time via Plugin.processOptions */
+  val compileTimeOptionPrefix = ""
+
+  /**
+   * Parse the compiler command line options to fetch the configued checked exception strategy.
+   *
+   * @param nx The NX universe from which a checked exception strategy will be returned.
+   * @param optionPrefix The prefix to filter from all options. For macros, this will be `macroTimeOptionPrefix`; in the compiler,
+   *                     this will be `compileTimeOptionPrefix`
+   * @param options A list of compiler options to be parsed.
+   * @return An appropriate strategy, or None if unspecified. If None, StandardCheckedExceptionStrategy should be used.
+   */
+  def parseCheckedExceptionStrategy (nx: NX, optionPrefix: String, options: List[String]): Option[nx.CheckedExceptionStrategy] = {
+    /* Clean up the options */
+    val nxOptions = options.filter(_.startsWith(optionPrefix)).map(_.substring(optionPrefix.length))
+
+    /* Extract the last 'checked' options */
+    val checkedPrefix = "checked:"
+    val checkedOption = nxOptions.filter(_.startsWith(checkedPrefix)).map(_.substring(checkedPrefix.length)).lastOption
+
+    /* Map to a checked strategy */
+    checkedOption.flatMap {
+      case "standard" => Some(nx.StandardCheckedExceptionStrategy)
+      case "strict" => Some(nx.StrictCheckedExceptionStrategy)
+      case "fatal" => Some(nx.FatalCheckedExceptionStrategy)
+      case _ => None
+    }
+  }
+}
+
+/**
  * No Exceptions compiler plugin.
  *
  * @param global Compiler state.
  */
 class CompilerPlugin (val global: Global) extends Plugin {
+  import CompilerPlugin._
   import global._
 
-  override val name: String = "nx"
+  override val name: String = CompilerPlugin.name
   override val description: String = "Checked exceptions for Scala. If you're stuck using exceptions, insist on Checked Brand Exceptions™."
   override val components: List[PluginComponent] = List(Component)
 
@@ -45,20 +86,20 @@ class CompilerPlugin (val global: Global) extends Plugin {
   private var checkedExceptionStrategy: Component.CheckedExceptionStrategy = Component.StandardCheckedExceptionStrategy
 
   override def processOptions(options: List[String], error: String => Unit) {
-    /*
-     * Parse our known plugin options
-     */
+    /* Parse our known plugin options */
     for (option <- options) {
       option match {
-        case "checked:standard" => checkedExceptionStrategy = Component.StandardCheckedExceptionStrategy
-        case "checked:strict" => checkedExceptionStrategy = Component.StrictCheckedExceptionStrategy
-        case "checked:fatal" => checkedExceptionStrategy = Component.FatalCheckedExceptionStrategy
         case _ if option.startsWith("checked") =>
-          error("Unknown checked exception value: "+ option.substring("checked:".length))
+          /* Fetching this value is handled below; here, we just validate it */
+          if (parseCheckedExceptionStrategy(Component, compileTimeOptionPrefix, List(option)).isEmpty)
+            error("Unknown checked exception value: "+ option.substring("checked:".length))
         case _ =>
           error(s"Unknown option: $option")
       }
     }
+
+    /* Set the checked exception strategy; validation of the options is done above. */
+    parseCheckedExceptionStrategy(Component, compileTimeOptionPrefix, options).foreach(checkedExceptionStrategy = _)
   }
 
   override val optionsHelp: Option[String] = Some(Seq(
