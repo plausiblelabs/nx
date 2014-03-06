@@ -32,7 +32,7 @@ import coop.plausible.nx.ValidationResult.CannotOverride
 /**
  * No Exceptions macro implementation.
  */
-object Macro extends MacroTypes {
+object Macros extends MacroTypes {
   /**
    * Private implementation of the nx.verify macro; rather than triggering compilation errors,
    * it simply returns the result of the validation.

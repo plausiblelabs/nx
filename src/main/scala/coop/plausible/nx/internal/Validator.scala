@@ -30,8 +30,8 @@ import coop.plausible.nx.{UncheckedExceptions, internal}
  * No Exceptions Implementation.
  *
  * This trait may be mixed in with any valid reflection global, including:
- * - As a compiler plugin (see [[internal.CompilerPlugin]])
- * - As a compile-time macro (see [[internal.Macro]])
+ * - As a compiler plugin (see [[CompilerPlugin]])
+ * - As a compile-time macro (see [[Macros]])
  */
 private trait Validator extends Core with Errors with CheckedExceptionStrategies {
   import universe._

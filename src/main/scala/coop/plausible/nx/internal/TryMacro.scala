@@ -55,7 +55,7 @@ object TryMacro extends MacroTypes {
     /* Fetch the list of unhandled exceptions */
     val validator = new nx.ThrowableValidator(checkedExceptionStrategy)
     val validationErrors = validator.check(expr.tree)
-    val unhandled = Macro.extractUnhandledExceptionTypes(nx)(validationErrors)
+    val unhandled = Macros.extractUnhandledExceptionTypes(nx)(validationErrors)
 
     /* If no exceptions are unhandled, there's nothing to do */
     val LeftClass = typeOf[Left[_, _]]

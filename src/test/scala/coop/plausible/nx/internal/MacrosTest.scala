@@ -31,8 +31,8 @@ import coop.plausible.nx
  *
  * This is a basic smoke test for the macro; the actual core implementation is tested in NXTest.
  */
-class MacroTest extends Specification {
-  "Macro" should {
+class MacrosTest extends Specification {
+  "NX macro" should {
     /* Once we support actual error reporting, we should smoke
      * test that too. */
     "evaluate an expression at compile-time" in {

@@ -28,7 +28,7 @@ package coop.plausible
  */
 package object nx {
   import scala.language.experimental.macros
-  import internal.Macro
+  import internal.Macros
 
   /**
    * Scan `expr` for unhandled exception errors. Compiler errors will be triggered for any unhandled exceptions.
@@ -37,7 +37,7 @@ package object nx {
    * @tparam T The expression type.
    * @return The expression result, or a compiler error if the expression contained unchecked exceptions.
    */
-  def exceptionChecked[T] (expr: T): T = macro Macro.exception_checked[T]
+  def exceptionChecked[T] (expr: T): T = macro Macros.exception_checked[T]
 
   /**
    * Scan `expr` for unhandled exception errors. Compiler errors will be triggered for any unhandled exceptions.
@@ -47,7 +47,7 @@ package object nx {
    * @tparam T The expression type.
    * @return The expression result, or a compiler error if the expression contained unchecked exceptions.
    */
-  def exceptionChecked[T] (checked: CheckedExceptionConfig) (expr: T): T = macro Macro.excpetion_checked_config[T]
+  def exceptionChecked[T] (checked: CheckedExceptionConfig) (expr: T): T = macro Macros.excpetion_checked_config[T]
 
 
   /**
@@ -88,7 +88,7 @@ package object nx {
    * @tparam T The expression type.
    * @return The validation result.
    */
-  private[nx] def verify[T] (expr: T): ValidationResult = macro Macro.nx_verify[T]
+  private[nx] def verify[T] (expr: T): ValidationResult = macro Macros.nx_verify[T]
 
   /**
    * Validate `expr` and return the validation results. Supports unit testing the checked exception implementation.
@@ -108,5 +108,5 @@ package object nx {
    * @tparam T The expression type.
    * @return The validation result.
    */
-  private[nx] def verify[T] (checked: CheckedExceptionConfig) (expr: T): ValidationResult = macro Macro.nx_verify_config[T]
+  private[nx] def verify[T] (checked: CheckedExceptionConfig) (expr: T): ValidationResult = macro Macros.nx_verify_config[T]
 }

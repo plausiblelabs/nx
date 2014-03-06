@@ -108,8 +108,8 @@ class CompilerPlugin (val global: Global) extends Plugin {
   ).mkString(System.getProperty("line.separator")))
 
   /**
-   * Compiler component that defines our Macro compilation phase; hands the
-   * compilation unit off to the actual Macro implementation.
+   * Compiler component that defines our NX compilation phase; hands the
+   * compilation unit off to the actual NX implementation.
    */
   private object Component extends PluginComponent with Validator {
     override def newPhase (prev: Phase )= new ValidationPhase(prev)

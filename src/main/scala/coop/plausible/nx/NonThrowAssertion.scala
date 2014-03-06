@@ -23,7 +23,7 @@
 
 package coop.plausible.nx
 
-import coop.plausible.nx.internal.Macro
+import coop.plausible.nx.internal.Macros
 
 /**
  * May be applied to checked exception-throwing expressions to assert that the given exception is not thrown.
@@ -43,5 +43,5 @@ class NonThrowAssertion[E <: Throwable] {
    * @tparam T The expression result type.
    * @return The expression result.
    */
-  def apply[T] (expr: T): T = macro Macro.assertNonThrow[E, T]
+  def apply[T] (expr: T): T = macro Macros.assertNonThrow[E, T]
 }
