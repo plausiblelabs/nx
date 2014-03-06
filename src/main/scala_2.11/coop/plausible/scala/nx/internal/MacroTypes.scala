@@ -36,7 +36,7 @@ trait MacroTypes {
   /**
    * The whitebox context type for this Scala release.
    * Refer to [[http://docs.scala-lang.org/overviews/macros/blackbox-whitebox.html]] for more details.
-   */~
+   */
   type WhiteboxContext = scala.reflect.macros.whitebox.Context
 }
 
