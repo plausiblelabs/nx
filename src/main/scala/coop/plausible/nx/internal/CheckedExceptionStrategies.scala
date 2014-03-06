@@ -23,8 +23,6 @@
 
 package coop.plausible.nx.internal
 
-import coop.plausible.nx.Validator
-
 /**
  * Defines the NX checked/unchecked strategies.
  */
