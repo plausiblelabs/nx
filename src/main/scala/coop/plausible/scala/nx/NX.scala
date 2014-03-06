@@ -167,11 +167,14 @@ private trait NX extends Core with Errors with CheckedExceptionStrategies {
      * @return An ordered sequence of validation errors.
      */
     def validationErrors (tree: Tree): Seq[ValidationError] = {
-      /* Perform traversal */
-      traverse(tree)
-
       /* The top of the tree is considered a propagation point */
-      mutableState.declarePropagationPoint(Set())
+      mutableState.propagationPoint {
+        /* Perform traversal */
+        traverse(tree)
+
+        /* No exceptions are handled at the top of the tree */
+        Set()
+      }
 
       /* Provide the result */
       mutableState.validationErrors
@@ -193,8 +196,11 @@ private trait NX extends Core with Errors with CheckedExceptionStrategies {
       /**
        * The set of throwables types that are currently known to be throwable from the current position in the tree,
        * but may still be caught or declared.
+       *
+       * A new candidate list is pushed onto the stack upon entry into a propagation point, and this list is
+       * popped at exit. An initial list is created for the root tree node.
        */
-      private var candidateThrowies = Seq[Throwie]()
+      private val candidateThrowieStack = mutable.Stack[mutable.MutableList[Throwie]]()
 
       /**
        * The set of validation errors that are found across the entire tree. This will be populated explicitly
@@ -208,7 +214,8 @@ private trait NX extends Core with Errors with CheckedExceptionStrategies {
        * @param throwTypes Types (and transitively, subtypes) to be removed from the set of candidate throwables.
        */
       private def filterCandidateThrowies (throwTypes: Set[Type]): Unit = throwTypes.foreach { throwType =>
-        candidateThrowies = candidateThrowies.filterNot(_.tpe <:< throwType)
+        val filtered = candidateThrowieStack.pop.filterNot(_.tpe <:< throwType)
+        candidateThrowieStack.push(filtered)
       }
 
       /**
@@ -227,7 +234,7 @@ private trait NX extends Core with Errors with CheckedExceptionStrategies {
        * @param throwies The throwies that may be thrown at this point.
        */
       def declareCandidateThrowies (throwies: Seq[Throwie]): Unit = {
-        candidateThrowies = candidateThrowies ++: throwies.filterNot(t => checkedStrategy.isUnchecked(t.tpe))
+        candidateThrowieStack.head ++= throwies.filterNot(t => checkedStrategy.isUnchecked(t.tpe))
       }
 
       /**
@@ -240,27 +247,36 @@ private trait NX extends Core with Errors with CheckedExceptionStrategies {
       def declareCatchPoint (throwTypes: Set[Type]): Unit = filterCandidateThrowies(throwTypes)
 
       /**
-       * This should be called at propagation points to declare handled throwables at a propagation point.
+       * This should be called to define a propigation point; a new entry in the candidate throwies
+       * stack will be created, and the provided function executed.
        *
-       * Any throwable types declared in `throwTypes` will be removed from the set of ''candidate'' uncaught throwables,
-       * and any undeclared types will be moved to the list of ''known'' unhandled throwables.
+       * Any throwable types returned by the expression will be removed from the set of ''candidate'' uncaught
+       * throwables, and any undeclared types will be moved to the list of ''known'' unhandled throwables.
        *
-       * @param throwTypes The throwable types declared at this propagation point.
+       * @param expr Expression to execute to generate the set of handled/declared throwable types.
        */
-      def declarePropagationPoint (throwTypes: Set[Type]): Unit = {
+      def propagationPoint (expr: => Set[Type]): Unit = {
+        /* Create a new entry in the candidate stack. */
+        candidateThrowieStack.push(mutable.MutableList())
+
+        /* Gather declared throwables. */
+        val declared = expr
+
         /* Filter declared types from the candidates */
-        filterCandidateThrowies(throwTypes)
+        filterCandidateThrowies(declared)
 
         /* Move all remaining candidates to the list of unhandled throwables */
-        validationErrorList ++= candidateThrowies.map { t => UnhandledThrowable(t.pos, t.tpe) }
-        candidateThrowies = List()
+        validationErrorList ++= candidateThrowieStack.head.map { t => UnhandledThrowable(t.pos, t.tpe) }
+        candidateThrowieStack.pop()
       }
 
       /**
        * Return a snapshot of the currently collected set of validation errors. The errors will be ordered
        * according to the original point in the tree in which they occurred.
        */
-      def validationErrors: Seq[ValidationError] = validationErrorList.toSeq
+      def validationErrors: Seq[ValidationError] = {
+        validationErrorList.toSeq
+      }
     }
 
     /** @inheritdoc */
@@ -273,7 +289,7 @@ private trait NX extends Core with Errors with CheckedExceptionStrategies {
       /* Look for exception-related constructs */
       tree match {
         /* Class body and constructors. This is a propagation point. */
-        case cls:ClassDef =>
+        case cls:ClassDef => mutableState.propagationPoint {
           /*
            * Find the primary constructor declaration.
            *
@@ -299,9 +315,11 @@ private trait NX extends Core with Errors with CheckedExceptionStrategies {
           /* Traverse into the class to populate the set of candidate throwables. */
           defaultTraverse()
 
-          /* Declare the propagation point. This uses the annotations found on the primary constructor, and the throwables
+          /* Return the set of handled throwable types; this uses the annotations found on the primary constructor, and the throwables
            * found within the class body itself. */
-          mutableState.declarePropagationPoint(throws.toSet)
+          throws.toSet
+        }
+
 
         /* try statement. This is a catch point. */
         case Try(block, catches, finalizer) =>
@@ -352,7 +370,7 @@ private trait NX extends Core with Errors with CheckedExceptionStrategies {
           traverse(finalizer)
 
         /* Method or constructor definition. This is a propagation point. */
-        case defdef:DefDef =>
+        case defdef:DefDef => mutableState.propagationPoint {
           /* Traverse all children */
           defaultTraverse()
 
@@ -392,29 +410,15 @@ private trait NX extends Core with Errors with CheckedExceptionStrategies {
             }.right
           ) yield result
 
-          /* Return 'true' if this def is a propagation point. Stable/immutable accessors are treated as non-propagation
-           * points. This excludes *lazy* val declarations, which could trigger a throw on first access. */
-          def isPropagationPoint: Boolean = {
-            val term = defdef.symbol.asTerm
-
-            if (term.isLazy) {
-              /* All lazy values are propagation points, as their evaluation occurs at some indeterminate future time. */
-              true
-            } else if (term.isAccessor) {
-              /* val/var definitions aren't propagation points; any exceptions that may be thrown are thrown
-               * within the enclosing definition at initialization time */
-              false
-            } else {
-              /* All other defs are considered to be propagation points. */
-              true
-            }
-          }
-
-          /* Declare the propagation point, or any errors. */
+          /* Return the handled exceptions, or any errors. */
           throws match {
-            case Right(types) => if (isPropagationPoint) mutableState.declarePropagationPoint(types.toSet)
-            case Left(errs) => for (err <- errs) mutableState.declareValidationError(err)
+            case Right(types) =>
+              types.toSet
+            case Left(errs) =>
+              for (err <- errs) mutableState.declareValidationError(err)
+              Set()
           }
+        }
 
         /* Explicit throw */
         case thr:Throw =>
