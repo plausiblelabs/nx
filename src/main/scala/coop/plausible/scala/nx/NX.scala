@@ -154,7 +154,7 @@ private trait NX extends Core with Errors with CheckedExceptionStrategies {
      */
     def validationErrors (tree: Tree): Seq[ValidationError] = {
       /* The top of the tree is considered a propagation point */
-      mutableState.propagationPoint {
+      mutableState.propagationPoint(tree) {
         /* Perform traversal */
         traverse(tree)
 
@@ -239,21 +239,26 @@ private trait NX extends Core with Errors with CheckedExceptionStrategies {
        * Any throwable types returned by the expression will be removed from the set of ''candidate'' uncaught
        * throwables, and any undeclared types will be moved to the list of ''known'' unhandled throwables.
        *
+       * @param tree The propigation point's node. If marked with an @unchecked annotation, `expr` will not be
+       *             executed.
        * @param expr Expression to execute to generate the set of handled/declared throwable types.
        */
-      def propagationPoint (expr: => Set[Type]): Unit = {
-        /* Create a new entry in the candidate stack. */
-        candidateThrowieStack.push(mutable.MutableList())
+      def propagationPoint (tree: Tree) (expr: => Set[Type]): Unit = {
+        /* We skip this entire propagation point if it's marked @unchecked */
+        if (tree.symbol == null || !uncheckedAnnotated(tree.symbol.annotations)) {
+          /* Create a new entry in the candidate stack. */
+          candidateThrowieStack.push(mutable.MutableList())
 
-        /* Gather declared throwables. */
-        val declared = expr
+          /* Gather declared throwables. */
+          val declared = expr
 
-        /* Filter declared types from the candidates */
-        filterCandidateThrowies(declared)
+          /* Filter declared types from the candidates */
+          filterCandidateThrowies(declared)
 
-        /* Move all remaining candidates to the list of unhandled throwables */
-        validationErrorList ++= candidateThrowieStack.head.map { t => UnhandledThrowable(t.pos, t.tpe) }
-        candidateThrowieStack.pop()
+          /* Move all remaining candidates to the list of unhandled throwables */
+          validationErrorList ++= candidateThrowieStack.head.map { t => UnhandledThrowable(t.pos, t.tpe) }
+          candidateThrowieStack.pop()
+        }
       }
 
       /**
@@ -275,7 +280,7 @@ private trait NX extends Core with Errors with CheckedExceptionStrategies {
       /* Look for exception-related constructs */
       tree match {
         /* Class body and constructors. This is a propagation point. */
-        case cls:ClassDef => mutableState.propagationPoint {
+        case cls:ClassDef => mutableState.propagationPoint(tree) {
           /*
            * Find the primary constructor declaration.
            *
@@ -288,6 +293,7 @@ private trait NX extends Core with Errors with CheckedExceptionStrategies {
           }.getOrElse(Seq())
 
 
+
           /* Find @throws annotations; we can't yet declare the propagation point, as the primary constructor's body is not
            * actually within the methodSymbol; we have to traverse into the class first. */
           val throws: Seq[Type] = extractAnnotatedThrows(cls, primaryAnnotations) match {
@@ -298,8 +304,11 @@ private trait NX extends Core with Errors with CheckedExceptionStrategies {
               Seq()
           }
 
-          /* Traverse into the class to populate the set of candidate throwables. */
-          defaultTraverse()
+          /* Traverse into the class to populate the set of candidate throwables -- unless the primary constructor is
+           * marked as unchecked. */
+          if (!uncheckedAnnotated(primaryAnnotations)) {
+            defaultTraverse()
+          }
 
           /* Return the set of handled throwable types; this uses the annotations found on the primary constructor, and the throwables
            * found within the class body itself. */
@@ -356,7 +365,7 @@ private trait NX extends Core with Errors with CheckedExceptionStrategies {
           traverse(finalizer)
 
         /* Method or constructor definition. This is a propagation point. */
-        case defdef:DefDef => mutableState.propagationPoint {
+        case defdef:DefDef => mutableState.propagationPoint(tree) {
           /* Traverse all children */
           defaultTraverse()
 
@@ -439,6 +448,26 @@ private trait NX extends Core with Errors with CheckedExceptionStrategies {
           /* Hand off to default traversal methodSymbol */
           super.traverse(tree)
       }
+    }
+
+    /** Class symbol for our `unchecked` annotation, or None if the runtime library is not available */
+    private lazy val UncheckedClass: Option[Symbol] = try {
+      Some(rootMirror.staticClass(classOf[UncheckedExceptions].getCanonicalName))
+    } catch {
+      case mre:Exception => None
+    }
+
+    /**
+     * Return true if `annotations` contains an @unchecked annotation, false otherwise.
+     *
+     * @param annotations The annotations to be checked.
+     * @return true if the @unchecked is included in the annotations, false otherwise.
+     */
+    private def uncheckedAnnotated (annotations: Seq[Annotation]): Boolean = {
+      if (UncheckedClass.exists(uncheckedClass => annotations.exists(_.tpe.typeSymbol == uncheckedClass)))
+        println("UNCHECKED " + annotations)
+
+      UncheckedClass.exists(uncheckedClass => annotations.exists(_.tpe.typeSymbol == uncheckedClass))
     }
 
     /** The class symbol for the 'scala.throws' annotation */

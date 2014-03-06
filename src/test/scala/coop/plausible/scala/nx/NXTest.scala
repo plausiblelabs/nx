@@ -395,4 +395,23 @@ class NXTest extends Specification {
       def throw6 (flag: Boolean) = if (flag) throw new AssertionError()
     }.unhandled.mustEqual(Set(classOf[IOException], classOf[RuntimeException], classOf[Error]))
   }
+
+  "@UncheckedExceptions annotation handling" should {
+    "disable validation on methods" in NX.check {
+      @UncheckedExceptions
+      def thrower (flag: Boolean) = if (flag) throw new Exception()
+    }.errors.mustEqual(Seq())
+
+    "disable validation on class-level initializers via the primary constructor" in NX.check {
+      class A @UncheckedExceptions() (flag: Boolean) {
+        if (flag) throw new Exception()
+      }
+    }.errors.mustEqual(Seq())
+
+    "disable validation on entire classes" in NX.check {
+      @UncheckedExceptions class A (flag: Boolean) {
+        def thrower (flag: Boolean) = if (flag) throw new Exception()
+      }
+    }.errors.mustEqual(Seq())
+  }
 }
