@@ -65,7 +65,7 @@ object NX {
    *   val result = assertNonThrow[UnknownHostException](java.net.InetAddress.getByName("127.0.0.1"))
    * }}}
    *
-   * If the exception is thrown, it will be wrapped in an [[AssertionError]] and rethrown.
+   * If the exception is thrown, it will be wrapped in a `java.lang.AssertionError` and rethrown.
    *
    * @tparam T The exception type to be asserted.
    * @return A new [[NonThrowAssertion]] instance that may be applied to a checked exception throwing expression.

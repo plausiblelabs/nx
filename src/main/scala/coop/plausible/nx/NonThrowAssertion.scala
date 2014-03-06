@@ -37,7 +37,7 @@ class NonThrowAssertion[E <: Throwable] {
 
   /**
    * Assert that the given checked exception `T` is not thrown by `expr`. If the exception is thrown,
-   * it will be wrapped in an [[AssertionError]] and rethrown.
+   * it will be wrapped in a `java.lang.AssertionError` and rethrown.
    *
    * @param expr The expression that may throw exceptions of type `E`.
    * @tparam T The expression result type.
