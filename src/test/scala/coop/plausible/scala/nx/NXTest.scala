@@ -414,4 +414,18 @@ class NXTest extends Specification {
       }
     }.errors.mustEqual(Seq())
   }
+
+  "macro assertion" should {
+    "re-raise the specified exception as an assertion" in {
+      def thrower (flag: Boolean): Unit = NX.assertNonThrow[IOException] {
+        if (flag) throw new IOException
+      }
+      thrower(true) must throwA[AssertionError]
+    }
+
+    "return the expected result on non-failure" in {
+      def thrower (): Int = NX.assertNonThrow[IOException] { 42 }
+      thrower() mustEqual(42)
+    }
+  }
 }

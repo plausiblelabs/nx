@@ -54,6 +54,24 @@ object NX {
    */
   def nx[T] (checked: CheckedExceptionConfig) (expr: T): T = macro Macro.nx_config[T]
 
+
+  /**
+   * Assert that the given checked exception `T` is not thrown by `expr`, excluding `T` from checked exception validation
+   * within.
+   *
+   * Example usage:
+   *
+   * {{{
+   *   val result = assertNonThrow[UnknownHostException](java.net.InetAddress.getByName("127.0.0.1"))
+   * }}}
+   *
+   * If the exception is thrown, it will be wrapped in an [[AssertionError]] and rethrown.
+   *
+   * @tparam T The exception type to be asserted.
+   * @return A new [[NonThrowAssertion]] instance that may be applied to a checked exception throwing expression.
+   */
+  def assertNonThrow[T <: Throwable]: NonThrowAssertion[T] = new NonThrowAssertion[T]
+
   /**
    * Validate `expr` and return the validation results.
    *

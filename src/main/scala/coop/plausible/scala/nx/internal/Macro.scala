@@ -155,6 +155,57 @@ object Macro extends MacroTypes {
   }
 
   /**
+   * Implementation of the 'assertNonThrow' macro. Refer to [[NX.assertNonThrow]] for the
+   * public API.
+   *
+   * @param c Compiler context.
+   * @param expr Expression to be evaluated.
+   * @tparam E Asserted exception type.
+   * @tparam T Expression type.
+   * @return The expression, wrapped in an appropriate try-assert block for `E`.
+   */
+  def assertNonThrow[E <: Throwable : c.WeakTypeTag, T] (c: Context) (expr: c.Expr[T]): c.Expr[T] = {
+    /* <= 2.10 compatibility shims */
+    val compat = new MacroCompat with MacroTypes { override val context: c.type = c }
+    import compat.{TypeName, TermName}
+    import c.universe.{TypeName => _, TermName => _, _}
+
+    /* Asserted Throwable's type */
+    val eType = implicitly[c.WeakTypeTag[E]].tpe
+
+    /* AssertionError class */
+    val AssertionErrorClass = c.mirror.staticClass("java.lang.AssertionError")
+
+    /* Generate try ( expr ) { catch e:E => throw new AssertionError() } */
+    c.Expr[T](
+      Try(
+        expr.tree,
+        List (
+          /* case e:E => throw new AssertionError() */
+          CaseDef(
+            Bind(TermName("e"), Typed(Ident(nme.WILDCARD), Ident(eType.typeSymbol))),
+            EmptyTree,
+            Throw(
+              Apply(
+                Select(
+                  New(Ident(AssertionErrorClass)),
+                  nme.CONSTRUCTOR
+                ),
+                List(
+                  Literal(Constant("Exception asserted as unthrowable was thrown")),
+                  Ident(TermName("e"))
+                )
+              )
+            )
+          )
+        ),
+        EmptyTree
+      )
+    )
+  }
+
+
+  /**
    * Extract the unhandled exception types from `errors`.
    *
    * @param nx Our NX context.
