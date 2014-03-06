@@ -67,7 +67,7 @@ package object nx {
    * @tparam T The exception type to be asserted.
    * @return A new [[NonThrowAssertion]] instance that may be applied to a checked exception throwing expression.
    */
-  def assertNoThrows[T <: Throwable]: NonThrowAssertion[T] = new NonThrowAssertion[T]
+  def assertNonThrows[T <: Throwable]: NonThrowAssertion[T] = new NonThrowAssertion[T]
 
 
   /* Private testing methods */

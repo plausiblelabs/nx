@@ -420,14 +420,14 @@ class ValidatorTest extends Specification {
 
   "macro assertion" should {
     "re-raise the specified exception as an assertion" in {
-      def thrower (flag: Boolean): Unit = nx.assertNoThrows[IOException] {
+      def thrower (flag: Boolean): Unit = nx.assertNonThrows[IOException] {
         if (flag) throw new IOException
       }
       thrower(true) must throwA[AssertionError]
     }
 
     "return the expected result on non-failure" in {
-      def thrower (): Int = nx.assertNoThrows[IOException] { 42 }
+      def thrower (): Int = nx.assertNonThrows[IOException] { 42 }
       thrower() mustEqual(42)
     }
   }
