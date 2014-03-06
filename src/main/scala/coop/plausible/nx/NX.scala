@@ -21,10 +21,10 @@
  * THE SOFTWARE.
  */
 
-package coop.plausible.scala.nx
+package coop.plausible.nx
 
 import scala.annotation.tailrec
-import coop.plausible.scala.nx.internal.{CheckedExceptionStrategies, Errors, Core}
+import coop.plausible.nx.internal.{CheckedExceptionStrategies, Errors, Core}
 
 /**
  * No Exceptions.

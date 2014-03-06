@@ -21,11 +21,11 @@
  * THE SOFTWARE.
  */
 
-package coop.plausible.scala.nx.internal
+package coop.plausible.nx.internal
 
 import scala.tools.nsc.{Phase, Global}
 import scala.tools.nsc.plugins.{PluginComponent, Plugin}
-import coop.plausible.scala.nx.NX
+import coop.plausible.nx.NX
 
 /**
  * No Exceptions compiler plugin.

@@ -21,13 +21,13 @@
  * THE SOFTWARE.
  */
 
-package coop.plausible.scala.nx.internal
+package coop.plausible.nx.internal
 
-import coop.plausible.scala.nx.ValidationResult.{ValidationError, UnhandledThrowable, InvalidThrowsAnnotation, CannotOverride}
-import coop.plausible.scala.nx._
-import coop.plausible.scala.nx.ValidationResult.InvalidThrowsAnnotation
-import coop.plausible.scala.nx.ValidationResult.UnhandledThrowable
-import coop.plausible.scala.nx.ValidationResult.CannotOverride
+import coop.plausible.nx.ValidationResult.{ValidationError, UnhandledThrowable, InvalidThrowsAnnotation, CannotOverride}
+import coop.plausible.nx._
+import coop.plausible.nx.ValidationResult.InvalidThrowsAnnotation
+import coop.plausible.nx.ValidationResult.UnhandledThrowable
+import coop.plausible.nx.ValidationResult.CannotOverride
 
 /**
  * No Exceptions macro implementation.

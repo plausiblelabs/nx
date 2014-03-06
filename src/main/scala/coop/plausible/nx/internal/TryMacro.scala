@@ -21,9 +21,9 @@
  * THE SOFTWARE.
  */
 
-package coop.plausible.scala.nx.internal
+package coop.plausible.nx.internal
 
-import coop.plausible.scala.nx.{CheckedExceptionConfig, NX}
+import coop.plausible.nx.{CheckedExceptionConfig, NX}
 
 /**
  * Try() macro implementation.

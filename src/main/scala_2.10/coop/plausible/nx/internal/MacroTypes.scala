@@ -21,36 +21,47 @@
  * THE SOFTWARE.
  */
 
-package coop.plausible.scala.nx
+package coop.plausible.nx.internal
 
 /**
- * Checked exception configurations supported by [[NX]].
+ * Scala 2.10 compatibility types.
  */
-object CheckedExceptionConfig {
+trait MacroTypes {
   /**
-   * The standard (Java) check strategy. Subtypes of `RuntimeException` and `Error` will be treated as
-   * unchecked.
+   * The blackbox context type for this Scala release.
+   * Refer to [[http://docs.scala-lang.org/overviews/macros/blackbox-whitebox.html]] for more details.
    */
-  case object Standard extends CheckedExceptionConfig
+  type Context = scala.reflect.macros.Context
 
   /**
-   * Strict exception check strategy. Only subtypes of `Error` will be treated as unchecked.
+   * The whitebox context type for this Scala release.
+   * Refer to [[http://docs.scala-lang.org/overviews/macros/blackbox-whitebox.html]] for more details.
    */
-  case object Strict extends CheckedExceptionConfig
-
-  /**
-   * Non-fatal check strategy. Only VM "fatal" exceptions will be treated as unchecked. These include:
-   *
-   * - VirtualMachineError
-   * - AssertionError
-   * - LinkageError
-   */
-  case object Fatal extends CheckedExceptionConfig
+  type WhiteboxContext = scala.reflect.macros.Context
 }
 
 /**
- * Defines exception types to be considered "unchecked" by [[NX]].
- *
- * Unchecked exceptions will not trigger an error if left unhandled.
+ * Scala 2.10 compatibility APIs.
  */
-sealed trait CheckedExceptionConfig
+trait MacroCompat { self:MacroTypes =>
+  /** The macro context */
+  val context: Context
+
+  import context.universe._
+
+  /**
+   * 2.10 compatibility shims for the 2.11 TermName API.
+   */
+  object TermName {
+    def apply (s: String) = newTermName(s)
+    def unapply (name: TermName): Option[String] = Some(name.toString)
+  }
+
+  /**
+   * 2.10 compatibility shims for the 2.10 TypeName API.
+   */
+  object TypeName {
+    def apply(s: String) = newTypeName(s)
+    def unapply(name: TypeName): Option[String] = Some(name.toString)
+  }
+}

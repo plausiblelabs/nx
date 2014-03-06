@@ -21,9 +21,9 @@
  * THE SOFTWARE.
  */
 
-package coop.plausible.scala.nx.internal
+package coop.plausible.nx.internal
 
-import coop.plausible.scala.nx.NX
+import coop.plausible.nx.NX
 
 /**
  * Defines the NX checked/unchecked strategies.

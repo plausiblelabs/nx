@@ -21,7 +21,7 @@
  * THE SOFTWARE.
  */
 
-package coop.plausible.scala.nx.internal
+package coop.plausible.nx.internal
 
 import org.specs2.mutable.Specification
 import scala.tools.nsc.interpreter.{Results, IMain}

@@ -21,13 +21,13 @@
  * THE SOFTWARE.
  */
 
-package coop.plausible.scala.nx
+package coop.plausible.nx
 
 import org.specs2.mutable.Specification
 import java.io.IOException
 import java.net.{SocketException, InetAddress, UnknownHostException}
 import scala.util.control.NonFatal
-import coop.plausible.scala.nx.ValidationResult.{UnhandledThrowable, CannotOverride}
+import coop.plausible.nx.ValidationResult.{UnhandledThrowable, CannotOverride}
 
 /**
  * NX implementation tests.

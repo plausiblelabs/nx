@@ -21,7 +21,7 @@
  * THE SOFTWARE.
  */
 
-package coop.plausible.scala.nx
+package coop.plausible.nx
 
 import org.specs2.mutable.Specification
 import java.io.{IOException, FileNotFoundException, EOFException}

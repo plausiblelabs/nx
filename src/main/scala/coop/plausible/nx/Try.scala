@@ -21,9 +21,9 @@
  * THE SOFTWARE.
  */
 
-package coop.plausible.scala.nx
+package coop.plausible.nx
 
-import coop.plausible.scala.nx.internal.TryMacro
+import coop.plausible.nx.internal.TryMacro
 
 /**
  * Type-safe mapping from exception-throwing expressions to Either types.

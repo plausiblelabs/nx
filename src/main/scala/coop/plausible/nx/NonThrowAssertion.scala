@@ -21,9 +21,9 @@
  * THE SOFTWARE.
  */
 
-package coop.plausible.scala.nx
+package coop.plausible.nx
 
-import coop.plausible.scala.nx.internal.Macro
+import coop.plausible.nx.internal.Macro
 
 /**
  * May be applied to checked exception-throwing expressions to assert that the given exception is not thrown.

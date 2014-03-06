@@ -21,21 +21,21 @@
  * THE SOFTWARE.
  */
 
-package coop.plausible.scala.nx
-
-import coop.plausible.scala.nx.ValidationResult.ValidationError
+package coop.plausible.nx.internal
 
 /**
- * NX validation results.
- *
- * These types mirror the internal validation types used by NX, but are made visible at runtime, rather than as
- * compilation errors.
+ * Defines the NX error types and operations.
  */
-private[nx] object ValidationResult {
+private[nx] trait Errors { self:Core =>
+  import universe._
+
   /**
    * An NX validation error.
    */
   trait ValidationError {
+    /** The error position. */
+    val pos: Position
+
     /** The error message. */
     val message: String
   }
@@ -43,34 +43,30 @@ private[nx] object ValidationResult {
   /**
    * An unhandled exception that is known to be throwable at `position`.
    *
-   * @param throwable The throwable's type.
+   * @param pos The position at which the throwable may be raised.
+   * @param throwableType The throwable's type.
    */
-  case class UnhandledThrowable[T <: Throwable] (throwable: Class[T]) extends ValidationError {
-    override val message:String  = s"unreported exception ${throwable.getSimpleName}; must be caught or declared to be thrown. " +
+  case class UnhandledThrowable (pos: Position, throwableType: Type) extends ValidationError {
+    override val message:String  = s"Unhandled exception type ${throwableType.typeSymbol.fullName}; must be caught or declared to be thrown. " +
       "Consider the use of monadic error handling, such as scala.util.Either."
   }
 
   /**
    * The overridden methodSymbol declares non-matching @throws annotations.
    *
-   * @param throwable The throwable's type.
+   * @param pos The position of the error in the overridding methodSymbol definition.
+   * @param throwableType The non-useable throwable's type.
+   * @param methodSymbol The overridding methodSymbol's symbol.
    */
-  case class CannotOverride[T <: Throwable] (parentMethodName: String, throwable: Class[T]) extends ValidationError {
-    override val message:String  = s"overridden methodSymbol $parentMethodName does not throw ${throwable.getSimpleName}"
+  case class CannotOverride (pos: Position, throwableType: Type, methodSymbol: Symbol) extends ValidationError {
+    override val message:String  = s"overridden methodSymbol ${methodSymbol.name} does not throw ${throwableType.typeSymbol.name}"
   }
 
   /**
    * A @throws annotation could not be parsed.
    *
+   * @param pos The error position.
    * @param message A descriptive error message.
    */
-  case class InvalidThrowsAnnotation (message: String) extends ValidationError
+  case class InvalidThrowsAnnotation (pos: Position, message: String) extends ValidationError
 }
-
-/**
- * Runtime validation result returned by [[NX]]
- *
- * @param errors All errors encountered, in the order they were encountered.
- * @param unhandled The full set of unhandled throwable classes.
- */
-private[nx] case class ValidationResult (errors: Seq[ValidationError], unhandled: Set[Class[_ <: Throwable]])

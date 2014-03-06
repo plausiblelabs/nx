@@ -21,14 +21,22 @@
  * THE SOFTWARE.
  */
 
-package coop.plausible.scala.nx.internal
+package coop.plausible.nx
 
-import scala.reflect.api.Universe
+import scala.annotation.StaticAnnotation
 
 /**
- * A mixable trait that defines the reflection universe in which NX types will operate.
+ * The UncheckedExceptions annotation disables [[NX]] exception checking within the given method or class.
+ *
+ * For example:
+ * {{{
+ * @UncheckedExceptions
+ * class Reader (fname: String) {
+ *   private val in = new BufferedReader(new FileReader(fname))
+ *   def read() = in.read()
+ * }
+ * }}}
+ *
+ * @param reason An optional message describing why the given type is marked as UncheckedExceptions.
  */
-private[nx] trait Core {
-  /** Reflection universe. */
-  val universe: Universe
-}
+class UncheckedExceptions (reason: String = "") extends StaticAnnotation
