@@ -464,9 +464,6 @@ private trait NX extends Core with Errors with CheckedExceptionStrategies {
      * @return true if the @unchecked is included in the annotations, false otherwise.
      */
     private def uncheckedAnnotated (annotations: Seq[Annotation]): Boolean = {
-      if (UncheckedClass.exists(uncheckedClass => annotations.exists(_.tpe.typeSymbol == uncheckedClass)))
-        println("UNCHECKED " + annotations)
-
       UncheckedClass.exists(uncheckedClass => annotations.exists(_.tpe.typeSymbol == uncheckedClass))
     }
 

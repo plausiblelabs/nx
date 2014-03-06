@@ -45,9 +45,7 @@ object Macro extends MacroTypes {
    */
   def nx_check_config[T] (c: Context)(checked:c.Expr[CheckedExceptionConfig])(expr: c.Expr[T]): c.Expr[ValidationResult] = {
     /* <= 2.10 compatibility shims */
-    val compat = new MacroCompat with MacroTypes {
-      override val context: c.type = c
-    }
+    val compat = new MacroCompat with MacroTypes { override val context: c.type = c }
     import compat.{TypeName, TermName}
     import c.universe.{TypeName => _, TermName => _, _}
 
@@ -61,12 +59,7 @@ object Macro extends MacroTypes {
     val errors = validator.check(expr.tree)
 
     /* Extract the set of unhandled throwables */
-    val types = errors.view.filter {
-      case nx.UnhandledThrowable(_, tpe) => true
-      case _ => false
-    }.map {
-      case nx.UnhandledThrowable(_, tpe) => tpe
-    }.toSet
+    val types = extractUnhandledExceptionTypes(nx)(errors)
 
     /* Convert the set of unhandled throwables to an AST representing a classOf[Throwable] argument list. */
     val unhandledArgs = types.map(tpe => Literal(Constant(tpe))).toList
@@ -159,6 +152,23 @@ object Macro extends MacroTypes {
     import c.universe._
     val resultExpr = nx_config(c)(null)(expr).in(rootMirror)
     c.Expr(resultExpr.tree)
+  }
+
+  /**
+   * Extract the unhandled exception types from `errors`.
+   *
+   * @param nx Our NX context.
+   * @param errors A set of NX validation errors.
+   * @return The unhandled exception types in `errors`, if any.
+   */
+  private[internal] def extractUnhandledExceptionTypes (nx: NX) (errors: Seq[nx.ValidationError]): Set[nx.universe.Type] = {
+    errors.view.filter {
+      case nx.UnhandledThrowable(_, tpe) => true
+      case _:nx.CannotOverride => false
+      case _:nx.InvalidThrowsAnnotation => false
+    }.map {
+      case nx.UnhandledThrowable(_, tpe) => tpe
+    }.toSet[nx.universe.Type]
   }
 
   /**

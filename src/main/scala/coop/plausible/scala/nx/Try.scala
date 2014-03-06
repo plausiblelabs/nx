@@ -21,32 +21,25 @@
  * THE SOFTWARE.
  */
 
-package coop.plausible.scala.nx.internal
+package coop.plausible.scala.nx
+
+import coop.plausible.scala.nx.internal.TryMacro
 
 /**
- * Scala 2.11+ compatibility types.
+ *  replacement for the standard `scala.util.Try`
+ *
+ * Note that this API is considered experimental and may change.
  */
-trait MacroTypes {
+object Try {
+  import scala.language.experimental.macros
+
   /**
-   * The blackbox context type for this Scala release.
-   * Refer to [[http://docs.scala-lang.org/overviews/macros/blackbox-whitebox.html]] for more details.
+   * Execute `expr`, catching all exceptions of type `E` and returning Either[E, T].
+   *
+   * @param expr The expression to execute.
+   * @tparam E The exception type to catch.
+   * @tparam T The expression's result type.
+   * @return The expression result or the thrown exception.
    */
-  type Context = scala.reflect.macros.blackbox.Context
-
-  /**
-   * The whitebox context type for this Scala release.
-   * Refer to [[http://docs.scala-lang.org/overviews/macros/blackbox-whitebox.html]] for more details.
-   */~
-  type WhiteboxContext = scala.reflect.macros.whitebox.Context
-}
-
-/**
- * Scala 2.11+ compatibility APIs.
- */
-trait MacroCompat { self:MacroTypes =>
-  /** The macro context */
-  val context: Context
-
-  def TypeName = context.universe.TypeName
-  def TermName = context.universe.TermName
+  def apply[E <: Throwable, T] (expr: T): Either[E, T] = macro TryMacro.Try[E, T]
 }
