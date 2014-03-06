@@ -26,7 +26,7 @@ package coop.plausible.nx
 import scala.annotation.StaticAnnotation
 
 /**
- * The UncheckedExceptions annotation disables [[Validator]] exception checking within the given method or class.
+ * The UncheckedExceptions annotation disables NX exception checking within the given method or class.
  *
  * For example:
  * {{{
