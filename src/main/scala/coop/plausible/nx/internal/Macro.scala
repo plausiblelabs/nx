@@ -50,7 +50,7 @@ object Macro extends MacroTypes {
     import c.universe.{TypeName => _, TermName => _, _}
 
     /* Instantiate a macro global-based instance of the plugin core */
-    val nx = new NX {
+    val nx = new Validator {
       override val universe: c.universe.type = c.universe
     }
 
@@ -126,7 +126,7 @@ object Macro extends MacroTypes {
    */
   def excpetion_checked_config[T] (c: Context)(checked:c.Expr[CheckedExceptionConfig])(expr: c.Expr[T]): c.Expr[T] = {
     /* Instantiate a macro global-based instance of the plugin core */
-    val nx = new NX {
+    val nx = new Validator {
       override val universe: c.universe.type = c.universe
     }
 
@@ -212,7 +212,7 @@ object Macro extends MacroTypes {
    * @param errors A set of NX validation errors.
    * @return The unhandled exception types in `errors`, if any.
    */
-  private[internal] def extractUnhandledExceptionTypes (nx: NX) (errors: Seq[nx.ValidationError]): Set[nx.universe.Type] = {
+  private[internal] def extractUnhandledExceptionTypes (nx: Validator) (errors: Seq[nx.ValidationError]): Set[nx.universe.Type] = {
     errors.view.filter {
       case nx.UnhandledThrowable(_, tpe) => true
       case _:nx.CannotOverride => false
@@ -230,7 +230,7 @@ object Macro extends MacroTypes {
    * @param expr The expression returning a `CheckedExceptionConfig` type, or null to use the standard config.
    * @return True or false.
    */
-  private def determineCheckStrategy (c: Context, nx:NX) (expr: c.Expr[CheckedExceptionConfig]): nx.CheckedExceptionStrategy = {
+  private def determineCheckStrategy (c: Context, nx:Validator) (expr: c.Expr[CheckedExceptionConfig]): nx.CheckedExceptionStrategy = {
     import c.universe._
 
     if (expr == null) {

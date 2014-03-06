@@ -24,7 +24,7 @@
 package coop.plausible.nx
 
 /**
- * Checked exception configurations supported by [[NX]].
+ * Checked exception configurations supported by [[Validator]].
  */
 object CheckedExceptionConfig {
   /**
@@ -49,7 +49,7 @@ object CheckedExceptionConfig {
 }
 
 /**
- * Defines exception types to be considered "unchecked" by [[NX]].
+ * Defines exception types to be considered "unchecked" by [[Validator]].
  *
  * Unchecked exceptions will not trigger an error if left unhandled.
  */

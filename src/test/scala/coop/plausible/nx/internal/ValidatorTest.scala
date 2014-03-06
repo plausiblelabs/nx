@@ -21,7 +21,7 @@
  * THE SOFTWARE.
  */
 
-package coop.plausible.nx
+package coop.plausible.nx.internal
 
 import org.specs2.mutable.Specification
 import java.io.IOException
@@ -30,11 +30,12 @@ import scala.util.control.NonFatal
 import coop.plausible.nx.ValidationResult.{UnhandledThrowable, CannotOverride}
 
 import coop.plausible.nx
+import coop.plausible.nx.{UncheckedExceptions, CheckedExceptionConfig}
 
 /**
  * NX implementation tests.
  */
-class NXTest extends Specification {
+class ValidatorTest extends Specification {
   /**
    * Generate a Scala specification reference.
    *

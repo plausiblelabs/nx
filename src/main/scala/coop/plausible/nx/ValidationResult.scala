@@ -68,7 +68,7 @@ private[nx] object ValidationResult {
 }
 
 /**
- * Runtime validation result returned by [[NX]]
+ * Runtime validation result returned by [[Validator]]
  *
  * @param errors All errors encountered, in the order they were encountered.
  * @param unhandled The full set of unhandled throwable classes.

@@ -23,8 +23,6 @@
 
 package coop.plausible.nx.internal
 
-import coop.plausible.nx.{CheckedExceptionConfig, NX}
-
 /**
  * Try() macro implementation.
  */
@@ -45,7 +43,7 @@ object TryMacro extends MacroTypes {
     import c.universe.{TypeName => _, TermName => _, Try => TryT, _}
 
     /* Set up an NX context within our macro universe */
-    val nx = new NX {
+    val nx = new Validator {
       override val universe: c.universe.type = c.universe
     }
 

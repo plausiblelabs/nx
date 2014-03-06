@@ -28,7 +28,7 @@ import coop.plausible.nx.internal.Macro
 /**
  * May be applied to checked exception-throwing expressions to assert that the given exception is not thrown.
  *
- * @see [[NX.assertNoThrows]]
+ * @see [[Validator.assertNoThrows]]
  *
  * @note This API is considered experimental and subject to change; this class may be removed.
  */

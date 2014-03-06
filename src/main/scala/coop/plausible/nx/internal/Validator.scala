@@ -21,10 +21,10 @@
  * THE SOFTWARE.
  */
 
-package coop.plausible.nx
+package coop.plausible.nx.internal
 
 import scala.annotation.tailrec
-import coop.plausible.nx.internal.{CheckedExceptionStrategies, Errors, Core}
+import coop.plausible.nx.{UncheckedExceptions, internal}
 
 /**
  * No Exceptions Implementation.
@@ -33,7 +33,7 @@ import coop.plausible.nx.internal.{CheckedExceptionStrategies, Errors, Core}
  * - As a compiler plugin (see [[internal.CompilerPlugin]])
  * - As a compile-time macro (see [[internal.Macro]])
  */
-private trait NX extends Core with Errors with CheckedExceptionStrategies {
+private trait Validator extends Core with Errors with CheckedExceptionStrategies {
   import universe._
 
   /**

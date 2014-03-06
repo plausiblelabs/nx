@@ -25,7 +25,6 @@ package coop.plausible.nx.internal
 
 import scala.tools.nsc.{Phase, Global}
 import scala.tools.nsc.plugins.{PluginComponent, Plugin}
-import coop.plausible.nx.NX
 
 /**
  * Compiler plugin APIs.
@@ -49,7 +48,7 @@ private[internal] object CompilerPlugin {
    * @param options A list of compiler options to be parsed.
    * @return An appropriate strategy, or None if unspecified. If None, StandardCheckedExceptionStrategy should be used.
    */
-  def parseCheckedExceptionStrategy (nx: NX, optionPrefix: String, options: List[String]): Option[nx.CheckedExceptionStrategy] = {
+  def parseCheckedExceptionStrategy (nx: Validator, optionPrefix: String, options: List[String]): Option[nx.CheckedExceptionStrategy] = {
     /* Clean up the options */
     val nxOptions = options.filter(_.startsWith(optionPrefix)).map(_.substring(optionPrefix.length))
 
@@ -112,7 +111,7 @@ class CompilerPlugin (val global: Global) extends Plugin {
    * Compiler component that defines our Macro compilation phase; hands the
    * compilation unit off to the actual Macro implementation.
    */
-  private object Component extends PluginComponent with NX {
+  private object Component extends PluginComponent with Validator {
     override def newPhase (prev: Phase )= new ValidationPhase(prev)
 
     override val runsAfter: List[String] = List("refchecks", "typer")
