@@ -38,7 +38,6 @@ class TryTest extends Specification {
         if (false) throw new FileNotFoundException()
         42
       }
-      println(s"r $result")
 
       result must beRight(42)
     }
@@ -59,17 +58,11 @@ class TryTest extends Specification {
     }
 
     "pass-through non-matching exceptions" in {
-      def result (flag: Boolean): Option[Throwable] = try {
-        Try[IOException] {
-          if (flag) throw new RuntimeException()
-          42
-        }
-        None
-      } catch {
-        case rt:RuntimeException => Some(rt)
+      def result (flag: Boolean): Unit = Try[IOException] {
+        if (flag) throw new RuntimeException()
       }
 
-      result(true) must beSome(anInstanceOf[RuntimeException])
+      result(true) must throwA[RuntimeException]
     }
   }
 }
