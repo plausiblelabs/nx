@@ -23,7 +23,7 @@
 
 package coop.plausible.nx
 
-import coop.plausible.nx.internal.TryMacro
+import coop.plausible.nx.internal.Macros
 
 /**
  * Type-safe mapping from exception-throwing expressions to Either types.
@@ -79,5 +79,5 @@ class Try[E <: Throwable] {
    * @tparam T The expression's result type.
    * @return The expression result or the thrown exception.
    */
-  def apply[T] (expr: T): Either[E, T] = macro TryMacro.Try[E, T]
+  def apply[T] (expr: T): Either[E, T] = macro Macros.Try_macro[E, T]
 }
