@@ -67,3 +67,16 @@ scalacOptions in console in Compile <+= (packageBin in Compile) map { p =>
 testOptions <+= (packageBin in Compile) map { p =>
   Tests.Argument("nx-plugin-path", p.toString)
 }
+
+
+publishTo := {
+  val nexus = "https://opensource.plausible.coop/nexus/"
+  if (version.value.trim.endsWith("SNAPSHOT"))
+    Some("snapshots" at nexus + "content/repositories/snapshots")
+  else
+    Some("releases"  at nexus + "content/repositories/releases")
+}
+
+publishMavenStyle := true
+
+pomIncludeRepository := { _ => false }
