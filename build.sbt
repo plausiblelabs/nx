@@ -2,8 +2,6 @@ name := """no-exceptions"""
 
 organization := "coop.plausible"
 
-version := "1.0-SNAPSHOT"
-
 scalaVersion := "2.10.3"
 
 crossScalaVersions := Seq("2.10.3", "2.11.0-M8")
