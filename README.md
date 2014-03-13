@@ -41,7 +41,7 @@ If you want to use compile-time annotations and macros, add a library dependency
 
 Pass `-Xplugin:...` to `scalac`:
 
-	scalac -Xplugin:no-exceptions_2.10-1.0-SNAPSHOT.jar source.scala
+	scalac -Xplugin:no-exceptions_2.10-1.0.jar source.scala
 
 
 Standard Usage
