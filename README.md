@@ -64,7 +64,7 @@ The default checked exception behavior can be adjusted with the `-P:nx:checked:`
 
 - Default Java checked exception behavior is enabled with `-P:nx:checked:standard`.
 - Strict checking (only subtypes of `Error` will be treated as unchecked) can be enabled with `-P:nx:checked:strict`
-- Fatal checking (only VM "fatal" exceptions will be treated as unchecked -- VirtualMachineError, AssertionError, LinkageError) can be enabled with `-P:nx:checked:strictfatal`
+- Fatal checking (only VM "fatal" exceptions will be treated as unchecked -- VirtualMachineError, AssertionError, LinkageError) can be enabled with `-P:nx:checked:fatal`
 
 ### Macro Usage
 
