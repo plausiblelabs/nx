@@ -2,9 +2,9 @@ name := """no-exceptions"""
 
 organization := "coop.plausible"
 
-scalaVersion := "2.10.3"
+scalaVersion := "2.10.4"
 
-crossScalaVersions := Seq("2.10.3", "2.11.0-M8")
+crossScalaVersions := Seq("2.10.4", "2.11-RC1")
 
 libraryDependencies ++= Seq(
   "org.scala-lang"          %   "scala-compiler"    % scalaVersion.value % "provided",
