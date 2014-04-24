@@ -45,8 +45,8 @@ object Macros extends MacroTypes {
    */
   def nx_verify_config[T] (c: Context)(checked:c.Expr[CheckedExceptionConfig])(expr: c.Expr[T]): c.Expr[ValidationResult] = {
     /* <= 2.10 compatibility shims */
-    val compat = new MacroCompat with MacroTypes { override val context: c.type = c }
-    import compat.{TypeName, TermName}
+    val compat = new MacroCompat with MacroTypes { override val universe: c.universe.type = c.universe }
+    import compat.{TypeName, TermName, SymbolApiCompat, termNames}
     import c.universe.{TypeName => _, TermName => _, _}
 
     /* Instantiate a macro global-based instance of the plugin core */
@@ -68,7 +68,7 @@ object Macros extends MacroTypes {
     val errorArgs = {
       /* Generics generic calls to calls to <Class>.apply(constantArgs) */
       def ValidationErrorCreate (tpe:Type, args:Any*) = {
-        val Case_apply = Select(Ident(tpe.typeSymbol.companionSymbol), TermName("apply"))
+        val Case_apply = Select(Ident(tpe.typeSymbol.companion), TermName("apply"))
         Apply(Case_apply, args.map(arg => Literal(Constant(arg))).toList)
       }
 
@@ -81,7 +81,7 @@ object Macros extends MacroTypes {
     }
 
     /* Select the NX.ValidationResult class */
-    val ValidationResult_apply = Select(Ident(typeOf[ValidationResult].typeSymbol.companionSymbol), TermName("apply"))
+    val ValidationResult_apply = Select(Ident(typeOf[ValidationResult].typeSymbol.companion), TermName("apply"))
 
     /* Define our Class[_ <: Throwable] type */
     val existentialClassType = ExistentialTypeTree(
@@ -93,7 +93,7 @@ object Macros extends MacroTypes {
     )
 
     /* Compose the Seq[_ <: Throwable](unhandled:_*) return value */
-    val Set_apply = Select(Ident(weakTypeOf[Set[_]].typeSymbol.companionSymbol), TermName("apply"))
+    val Set_apply = Select(Ident(weakTypeOf[Set[_]].typeSymbol.companion), TermName("apply"))
     val AllErrors = Apply(TypeApply(Ident(definitions.List_apply), List(Ident(typeOf[ValidationError].typeSymbol))), errorArgs)
     val UnhandledSet = Apply(TypeApply(Set_apply, List(existentialClassType)), unhandledArgs)
     c.Expr(Apply(ValidationResult_apply, List(AllErrors, UnhandledSet)))
@@ -166,8 +166,8 @@ object Macros extends MacroTypes {
    */
   def assertNonThrow[E <: Throwable : c.WeakTypeTag, T] (c: Context) (expr: c.Expr[T]): c.Expr[T] = {
     /* <= 2.10 compatibility shims */
-    val compat = new MacroCompat with MacroTypes { override val context: c.type = c }
-    import compat.{TypeName, TermName}
+    val compat = new MacroCompat with MacroTypes { override val universe: c.universe.type = c.universe }
+    import compat.{TypeName, TermName, termNames}
     import c.universe.{TypeName => _, TermName => _, _}
 
     /* Asserted Throwable's type */
@@ -183,13 +183,13 @@ object Macros extends MacroTypes {
         List (
           /* case e:E => throw new AssertionError() */
           CaseDef(
-            Bind(TermName("e"), Typed(Ident(nme.WILDCARD), Ident(eType.typeSymbol))),
+            Bind(TermName("e"), Typed(Ident(termNames.WILDCARD), Ident(eType.typeSymbol))),
             EmptyTree,
             Throw(
               Apply(
                 Select(
                   New(Ident(AssertionErrorClass)),
-                  nme.CONSTRUCTOR
+                  termNames.CONSTRUCTOR
                 ),
                 List(
                   Literal(Constant("Exception asserted as unthrowable was thrown")),

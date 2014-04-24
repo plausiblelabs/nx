@@ -23,6 +23,8 @@
 
 package coop.plausible.nx.internal
 
+import scala.reflect.api.Universe
+
 /**
  * Scala 2.11+ compatibility types.
  */
@@ -44,9 +46,15 @@ trait MacroTypes {
  * Scala 2.11+ compatibility APIs.
  */
 trait MacroCompat { self:MacroTypes =>
-  /** The macro context */
-  val context: Context
+  /** The compile-time universe */
+  val universe: Universe
 
-  def TypeName = context.universe.TypeName
-  def TermName = context.universe.TermName
+  class AnnotationCompat
+  class SymbolCompat
+  class SymbolApiCompat
+  class TypeCompat
+
+  def termNames = universe.termNames
+  def TypeName = universe.TypeName
+  def TermName = universe.TermName
 }

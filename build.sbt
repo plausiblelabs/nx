@@ -2,14 +2,14 @@ name := """no-exceptions"""
 
 organization := "coop.plausible"
 
-scalaVersion := "2.10.3"
+scalaVersion := "2.11.0"
 
-crossScalaVersions := Seq("2.10.3", "2.11.0-M8")
+crossScalaVersions := Seq("2.11.0", "2.10.4")
 
 libraryDependencies ++= Seq(
   "org.scala-lang"          %   "scala-compiler"    % scalaVersion.value % "provided",
   "org.scala-lang"          %   "scala-compiler"    % scalaVersion.value % "test", // We need to supply the library when testing
-  "org.specs2"              %%  "specs2"            % "2.3.7"            % "test"
+  "org.specs2"              %%  "specs2"            % "2.3.11"           % "test"
 )
 
 scalacOptions ++= Seq(
