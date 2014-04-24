@@ -36,6 +36,9 @@ import coop.plausible.nx.{UncheckedExceptions, internal}
 private trait Validator extends Core with Errors with CheckedExceptionStrategies {
   import universe._
 
+  private val compat = new MacroCompat with MacroTypes { override val universe: Validator.this.universe.type = Validator.this.universe }
+  import compat._
+
   /**
    * Finds all unhandled throwables at a given tree node.
    *
@@ -220,7 +223,7 @@ private trait Validator extends Core with Errors with CheckedExceptionStrategies
            * actually found in the class' body. We have to collect exception types from this constructor, and *then* descend
            * into the class body.
            */
-          val primaryAnnotations = cls.impl.tpe.declarations.collectFirst {
+          val primaryAnnotations = cls.impl.tpe.decls.collectFirst {
             case m: MethodSymbol if m.isPrimaryConstructor => m.annotations
           }.getOrElse(Seq())
 
@@ -309,7 +312,7 @@ private trait Validator extends Core with Errors with CheckedExceptionStrategies
           /* Find directly attached @throws-annotated throwable types. */
             childThrows <- extractAnnotatedThrows(defdef, defdef.symbol.annotations).left.map(Seq(_)).right;
             /* Fetch the list of overridden symbols (may be none). */
-            overriddenSymbols <- Right(defdef.symbol.allOverriddenSymbols).right;
+            overriddenSymbols <- Right(defdef.symbol.overrides).right;
 
             /* Fetch all @throws-annotated throwable types from overridden symbols. */
             parentThrows <- extractAnnotatedThrows(defdef, overriddenSymbols.map(_.annotations).flatten).left.map(Seq(_)).right;
@@ -365,7 +368,7 @@ private trait Validator extends Core with Errors with CheckedExceptionStrategies
           /* Extract both the target's @throws, as well as any symbols overridden by target. */
           val throws = for (
             applyThrows <- extractAnnotatedThrows(apply, apply.symbol.annotations).right;
-            parentThrows <- extractAnnotatedThrows(apply, apply.symbol.allOverriddenSymbols.map(_.annotations).flatten).right
+            parentThrows <- extractAnnotatedThrows(apply, apply.symbol.overrides.map(_.annotations).flatten).right
           ) yield applyThrows ++ parentThrows
 
           /* Find exception types declared to be thrown by the target; declare them as candidate throwables */
@@ -396,7 +399,7 @@ private trait Validator extends Core with Errors with CheckedExceptionStrategies
      * @return true if the @unchecked is included in the annotations, false otherwise.
      */
     private def uncheckedAnnotated (annotations: Seq[Annotation]): Boolean = {
-      UncheckedClass.exists(uncheckedClass => annotations.exists(_.tpe.typeSymbol == uncheckedClass))
+      UncheckedClass.exists(uncheckedClass => annotations.exists(_.tree.tpe.typeSymbol == uncheckedClass))
     }
 
     /** The class symbol for the 'scala.throws' annotation */
@@ -411,17 +414,17 @@ private trait Validator extends Core with Errors with CheckedExceptionStrategies
      */
     private def extractAnnotatedThrows (owner: Tree, annotations: Seq[Annotation]): Either[ValidationError, Seq[Type]] = {
       /* Filter non-@throws annotations */
-      val throwsAnnotations = annotations.filter(_.tpe.typeSymbol == ThrowsClass)
+      val throwsAnnotations = annotations.filter(_.tree.tpe.typeSymbol == ThrowsClass)
 
       /* Perform the actual extraction (recursively) */
       @tailrec def extractor (head: Annotation, tail: Seq[Annotation], accum: Seq[Type]): Either[ValidationError, Seq[Type]] = {
         /* Parse this annotation's argument. */
-        val parsed = head match {
+        val parsed = (head.tree.tpe, head.tree.children.tail) match {
           /* Scala 2.9 API: @throws(classOf[Exception]) (which is throws[T](classOf[Exception])) */
-          case Annotation(_, List(Literal(Constant(tpe: Type))), _) => Right(tpe)
+          case (_, List(Literal(Constant(tpe: Type)))) => Right(tpe)
             
           /* Scala 2.10 API: @throws[Exception], @throws[Exception]("cause") */
-          case Annotation(TypeRef(_, _, args), _, _) if args.size > 0 => Right(args.head)
+          case (TypeRef(_, _, args), _) if args.size > 0 => Right(args.head)
 
           /* Unsupported annotation arguments. */
           case _ => Left(InvalidThrowsAnnotation(owner.pos, s"Unsupported @throws annotation '$head' on `$owner`"))
