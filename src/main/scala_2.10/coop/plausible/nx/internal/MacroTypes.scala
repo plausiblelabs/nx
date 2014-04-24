@@ -23,6 +23,8 @@
 
 package coop.plausible.nx.internal
 
+import scala.reflect.api.Universe
+
 /**
  * Scala 2.10 compatibility types.
  */
@@ -44,10 +46,43 @@ trait MacroTypes {
  * Scala 2.10 compatibility APIs.
  */
 trait MacroCompat { self:MacroTypes =>
-  /** The macro context */
-  val context: Context
+  /** The compile-time universe */
+  val universe: Universe
 
-  import context.universe._
+  import universe._
+
+  /** Compatibility alias for `nme`. `nme` was was renamed to `termNames` in >= 2.11 */
+  def termNames = nme
+
+  /** 2.10 compatibility shims. */
+  implicit class TypeCompat (val tpe: Type) {
+    /** `declarations` was renamed to `decls` in 2.11 */
+    def decls = tpe.declarations
+  }
+
+  /** 2.10 compatibility shims. */
+  implicit class AnnotationCompat (val annotation: Annotation) {
+    /** The AnnotationExtractor API was deprecated in 2.11; This mock-up of the new tree-based API provides
+      * just enough of the API to satisfy our usage requirements in a way that's source-compatible with 2.11 */
+    object tree {
+      def tpe = annotation.tpe
+      object children {
+        def tail = annotation.scalaArgs
+      }
+    }
+  }
+
+  /** 2.10 compatibility shims. */
+  implicit class SymbolCompat (val symbol: Symbol) {
+    /** `allOverriddenSymbols` was renamed to `overrides` in 2.11 */
+    def overrides = symbol.allOverriddenSymbols
+  }
+
+  /** 2.10 compatibility shims. */
+  implicit class SymbolApiCompat (val api: SymbolApi) {
+    /** `companionSymbol` was renamed to `companion` in 2.11 */
+    def companion = api.companionSymbol
+  }
 
   /**
    * 2.10 compatibility shims for the 2.11 TermName API.
@@ -58,7 +93,7 @@ trait MacroCompat { self:MacroTypes =>
   }
 
   /**
-   * 2.10 compatibility shims for the 2.10 TypeName API.
+   * 2.10 compatibility shims for the 2.11 TypeName API.
    */
   object TypeName {
     def apply(s: String) = newTypeName(s)
