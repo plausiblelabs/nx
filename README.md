@@ -26,15 +26,12 @@ There are two ways to use NX:
 
 Enable the NX compiler plugin (if desired) in `build.sbt`:
 
-    // Required until we can submit the plugin to Maven Central
-    resolvers += "Plausible OSS" at "https://opensource.plausible.coop/nexus/content/repositories/public"
-
-	addCompilerPlugin("coop.plausible" %% "no-exceptions" % "1.0.1")
+	addCompilerPlugin("coop.plausible.nx" %% "no-exceptions" % "1.0.1")
 
 If you want to use compile-time annotations and macros, add a library dependency to `built.sbt`:
 
 	libraryDependencies ++= Seq(
-		"coop.plausible"          %%  "no-exceptions"     % "1.0.1"
+		"coop.plausible.nx"          %%  "no-exceptions"     % "1.0.1"
 	)
 
 #### Command Line
