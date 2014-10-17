@@ -1,6 +1,20 @@
 name := """no-exceptions"""
 
-organization := "coop.plausible"
+organization := "coop.plausible.nx"
+
+licenses := Seq("MIT" -> url("http://opensource.org/licenses/MIT"))
+
+homepage := Some(url("https://opensource.plausible.coop/src/projects/SNX/repos/nx"))
+
+organizationName := "Plausible Labs Cooperative, Inc."
+
+organizationHomepage := Some(url("https://www.plausible.coop"))
+
+scmInfo := Some(ScmInfo(
+  url("https://opensource.plausible.coop/src/scm/snx/nx.git"),
+  "scm:git:https://opensource.plausible.coop/src/scm/snx/nx.git",
+  Some("scm:git:ssh://git@opensource.plausible.coop:7999/snx/nx.git")
+))
 
 scalaVersion := "2.11.0"
 
@@ -70,13 +84,25 @@ testOptions <+= (packageBin in Compile) map { p =>
 
 
 publishTo := {
-  val nexus = "https://opensource.plausible.coop/nexus/"
+  val nexus = ""
   if (version.value.trim.endsWith("SNAPSHOT"))
-    Some("snapshots" at nexus + "content/repositories/snapshots")
+    Some("snapshots" at "https://opensource.plausible.coop/nexus/content/repositories/snapshots")
   else
-    Some("releases"  at nexus + "content/repositories/releases")
+    Some("releases"  at "https://oss.sonatype.org/service/local/staging/deploy/maven2/")
 }
 
 publishMavenStyle := true
 
+publishArtifact in Test := false
+
 pomIncludeRepository := { _ => false }
+
+// Come sbt 0.13.7, we can replace this with a native SBT key.
+pomExtra :=
+  <developers>
+    <developer>
+      <id>landonf</id>
+      <name>Landon Fuller</name>
+      <url>https://www.plausible.coop/about</url>
+    </developer>
+  </developers>
