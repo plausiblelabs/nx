@@ -255,17 +255,17 @@ object Macros extends MacroTypes {
    *
    * @param c Compiler context.
    * @param expr Expression to be wrapped.
-   * @tparam E Error type.
+   * @tparam E Exception type.
    * @tparam T Expression type.
    * @return An expression that will evaluate `expr` with a result type of Either[E, T].
    */
-  def Try_macro[E <: Throwable, T] (c: Context) (expr: c.Expr[T]): c.Expr[Either[E, T]] = {
+  def Try_macro[E <: Throwable, T] (c: WhiteboxContext) (expr: c.Expr[T]): c.Expr[Either[E, T]] = {
     /* <= 2.10 compatibility shims */
-    val compat = new MacroCompat with MacroTypes { override val context: c.type = c }
-    import compat.{TypeName, TermName}
-    import c.universe.{TypeName => _, TermName => _, Try => TryT, _}
+    val compat = new MacroCompat with MacroTypes { override val universe: c.universe.type = c.universe }
+    import compat.{TypeName, TermName, SymbolApiCompat, termNames}
+    import c.universe.{TypeName => _, TermName => _, _}
 
-    /* Set up an NX context within our macro universe */
+    /* Instantiate a macro global-based instance of the plugin core */
     val nx = new Validator {
       override val universe: c.universe.type = c.universe
     }
@@ -284,8 +284,8 @@ object Macros extends MacroTypes {
     val LeftClass = typeOf[Left[_, _]]
     val RightClass = typeOf[Right[_, _]]
 
-    val Right_apply = Select(Ident(RightClass.typeSymbol.companionSymbol), TermName("apply"))
-    val Left_apply = Select(Ident(LeftClass.typeSymbol.companionSymbol), TermName("apply"))
+    val Right_apply = Select(Ident(RightClass.typeSymbol.companion), TermName("apply"))
+    val Left_apply = Select(Ident(LeftClass.typeSymbol.companion), TermName("apply"))
 
     if (unhandled.size == 0) {
       /* Simply wrap the original expression in a Right[Nothing, T](expr) */
@@ -301,7 +301,7 @@ object Macros extends MacroTypes {
 
       /* Generate try ( Right(expr) ) { catch e:baseClass => Left(e) } */
       c.Expr(
-        TryT(
+        Try(
           /* Right(expr) */
           Apply(
             TypeApply(Right_apply, List(Ident(baseClass), Ident(expr.tree.tpe.typeSymbol))),
@@ -310,7 +310,7 @@ object Macros extends MacroTypes {
           List (
             /* case e:baseClass => Left(e) */
             CaseDef(
-              Bind(TermName("e"), Typed(Ident(nme.WILDCARD), Ident(baseClass))),
+              Bind(TermName("e"), Typed(Ident(termNames.WILDCARD), Ident(baseClass))),
               EmptyTree,
               Apply(
                 TypeApply(Left_apply, List(Ident(baseClass), Ident(expr.tree.tpe.typeSymbol))),

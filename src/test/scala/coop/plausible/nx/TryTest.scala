@@ -33,7 +33,7 @@ class TryTest extends Specification {
   "Try()" should {
     "widen the type as necessary" in {
       /* This should compile with the widened `IOException` type. */
-      val result: Either[IOException, Int] = Try[IOException] {
+      val result: Either[IOException, Int] = Try {
         if (false) throw new EOFException()
         if (false) throw new FileNotFoundException()
         42
@@ -43,26 +43,13 @@ class TryTest extends Specification {
     }
 
     "catch matching exceptions" in {
-      def betterTry (flag: Class[_ <: Throwable]): Either[IOException, Int] = Try[IOException] {
-        flag match {
-          case _ if flag == classOf[EOFException] => throw new EOFException()
-          case _ if flag == classOf[FileNotFoundException] => throw new FileNotFoundException()
-          case _ => 42
-        }
-      }
+      /* This bit of indirection allows us to avoid dead-code warnings on
+       * code that immediately throws an exception. */
+      @throws[IOException] def throwException (flag: Boolean) = if (flag) throw new IOException()
 
-      betterTry(classOf[EOFException]) must beLeft.like {
-        case _:IOException => ok
-        case _ => ko
+      Try { throwException(true) } must beLeft.like {
+        case e:IOException => ok
       }
-    }
-
-    "pass-through non-matching exceptions" in {
-      def result (flag: Boolean): Unit = Try[IOException] {
-        if (flag) throw new RuntimeException()
-      }
-
-      result(true) must throwA[RuntimeException]
     }
   }
 }
